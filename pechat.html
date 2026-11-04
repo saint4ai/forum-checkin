@@ -132,7 +132,8 @@ h2 { margin: 0; font-size: 24px; line-height: 1.2; font-weight: 800; }
     net: { bad: true, ico: ALERT, title: 'Нет связи с таблицей', sub: 'Наклейки напечатаются, когда связь вернётся' },
     stale: { bad: true, ico: ALERT, title: 'Ссылка устарела', sub: 'Попросите новую ссылку у организатора' },
     link: { bad: true, ico: ALERT, title: 'Ссылка неполная', sub: 'Откройте ссылку для сотрудников целиком' },
-    addr: { bad: true, ico: ALERT, title: 'Не задан адрес таблицы', sub: 'Впишите адрес в config.js и обновите страницу' }
+    addr: { bad: true, ico: ALERT, title: 'Не задан адрес таблицы', sub: 'Впишите адрес в config.js и обновите страницу' },
+    phone: { bad: true, ico: ALERT, title: 'Это страница для ноутбука с принтером', sub: 'На телефоне откройте ссылку «Телефоны на входе». Наклейки печатает ноутбук сам' }
   };
   var shown = '';
   function setStatus(kind) {
@@ -287,7 +288,10 @@ h2 { margin: 0; font-size: 24px; line-height: 1.2; font-weight: 800; }
   }
   document.addEventListener('visibilitychange', function () { if (!document.hidden) keepAwake(); });
 
-  if (!K) stop('link');
+  // Телефон или планшет станцией не работает: печатать ему некуда, а вторая станция дала бы двойные наклейки.
+  var touchOnly = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+  if (touchOnly) { stop('phone'); $('b-test').hidden = true; }
+  else if (!K) stop('link');
   else if (!API) stop('addr');
   else { keepAwake(); poll(); }
 })();
