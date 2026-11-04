@@ -3,91 +3,123 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="light">
 <meta name="robots" content="noindex">
 <title>Вход на форум</title>
 <style>
-/* Телефон сотрудника на входе: камера, результат скана, поиск, гость. Токены из прототипа входа и печати. */
+/* Телефон сотрудника на входе: камера, результат скана, поиск, гость. Токены: memory-bank/features/design.md. Фон всегда белый, тёмной темы нет. */
 :root {
-  --bg: #f4f5f2; --surface: #ffffff; --sunk: #eef0ec; --ink: #16181d; --muted: #5d636b; --line: #dcdfda;
-  --focus: #1f5fa8; --ok: #1d7a4b;
-  /* Полноэкранные результаты одинаковы в светлой и тёмной теме: белый текст на них держит контраст не ниже 5:1 */
-  --res-in: #1d7a4b; --res-again: #9a5b00; --res-unknown: #c8102e; --res-sys: #23262b;
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-}
-@media (prefers-color-scheme: dark) {
-  :root { --bg: #111316; --surface: #1a1d21; --sunk: #15181b; --ink: #eceeea; --muted: #a3a9ae; --line: #2c3035; --focus: #7fb0ec; --ok: #5ccf94; }
+  --bg: #FFFFFF; --group: #F5F5F7; --ink: #1D1D1F; --muted: #6E6E73; --hair: rgba(0,0,0,.08);
+  --accent: #0071E3; --accent-hover: #0066CC;
+  /* Заливки экранов результата: на зелёном и красном белый текст не ниже 4,5:1 (яркие #34C759 и #FF3B30 дают 2,2:1 и 3,6:1).
+     Оранжевый системный, текст на нём чернилами (8,2:1): так три экрана различимы и по яркости, не только по цвету */
+  --ok: #1E7F3C; --warn: #FF9F0A; --bad: #C4261D;
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+  --ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); font: 400 16px/1.4 var(--font); -webkit-text-size-adjust: 100%; }
+html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); font: 400 16px/1.4 var(--font); -webkit-text-size-adjust: 100%; -webkit-font-smoothing: antialiased; }
 button, input { font: inherit; color: inherit; }
-button { touch-action: manipulation; cursor: pointer; }
+button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-
-/* Кнопки: цель не меньше 56 px, между кнопками 12 px */
-.btn { display: flex; align-items: center; justify-content: center; min-height: 56px; padding: 0 20px; border-radius: 14px; border: 2px solid transparent; font-size: 18px; font-weight: 700; line-height: 1.15; text-align: center; transition: transform .12s cubic-bezier(.23,1,.32,1); }
-.btn:active { transform: scale(.98); }
-.btn:disabled { opacity: .45; cursor: default; transform: none; }
-.btn.ink { background: var(--ink); color: var(--bg); }
-.btn.line { background: transparent; border-color: var(--line); color: var(--ink); }
-
-/* Камера */
-.cam { position: fixed; inset: 0; overflow: hidden; background: #0d0e10; color: #fff; }
-.cam video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.aim { position: absolute; inset: 0 0 calc(var(--bar-h) + 8px) 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; pointer-events: none; }
-.frame { width: min(68vw, 320px); aspect-ratio: 1; border: 3px solid rgba(255,255,255,.92); border-radius: 22px; box-shadow: 0 0 0 100vmax rgba(0,0,0,.38); transition: border-color .15s; }
-.cam.busy .frame { border-color: #f2b84b; }
-.cap { margin: 0; padding: 8px 16px; border-radius: 999px; background: rgba(0,0,0,.62); font-size: 17px; font-weight: 600; text-align: center; }
-.bar { position: absolute; left: 0; right: 0; bottom: 0; display: grid; gap: 12px; padding: 40px 16px calc(16px + env(safe-area-inset-bottom)); background: linear-gradient(to bottom, transparent, rgba(0,0,0,.78)); }
-.bar .btn { background: #fff; color: #16181d; }
-.bar .btn.line { background: rgba(0,0,0,.35); border-color: rgba(255,255,255,.85); color: #fff; }
-.cam { --bar-h: 150px; }
-.cam.single { --bar-h: 84px; }
-
-/* Результат: во весь экран, цвет + иконка + заголовок */
-.res { position: fixed; inset: 0; display: flex; flex-direction: column; overflow: auto; padding: max(24px, env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom)); color: #fff; }
-.res.in { background: var(--res-in); } .res.again { background: var(--res-again); }
-.res.unknown { background: var(--res-unknown); } .res.sys { background: var(--res-sys); }
-.res-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 16px 0; }
-.ico { display: grid; place-items: center; width: 76px; height: 76px; margin-bottom: 8px; border-radius: 50%; background: rgba(255,255,255,.2); }
-.ico svg { width: 42px; height: 42px; fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
-.res h1 { margin: 0; font-size: clamp(34px, 10.5vw, 46px); line-height: 1.08; font-weight: 800; letter-spacing: -.01em; text-wrap: balance; overflow-wrap: break-word; }
-.res h1.long { font-size: clamp(26px, 8.2vw, 34px); }
-.res .sub { margin: 0; font-size: 22px; line-height: 1.25; font-weight: 500; overflow-wrap: anywhere; }
-.res .state { margin: 6px 0 0; font-size: 28px; line-height: 1.15; font-weight: 800; }
-.res .note { margin: 6px 0 0; font-size: 20px; line-height: 1.3; font-weight: 600; max-width: 22em; }
-.res-actions { display: grid; gap: 12px; }
-.res .btn { background: #fff; color: #16181d; }
-.res.in .btn { color: var(--res-in); } .res.again .btn { color: var(--res-again); } .res.unknown .btn { color: var(--res-unknown); }
-.res .btn.line { background: transparent; border-color: rgba(255,255,255,.85); color: #fff; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .res :focus-visible { outline-color: #fff; }
-.timer { height: 6px; margin: 16px -20px -20px; background: rgba(255,255,255,.18); }
-.timer i { display: block; height: 100%; background: rgba(255,255,255,.85); transform-origin: left; }
-@media (prefers-reduced-motion: no-preference) { .timer i { animation: drain 4s linear forwards; } }
-@keyframes drain { to { transform: scaleX(0); } }
 
-/* Поиск и гость */
-.page { min-height: 100dvh; display: flex; flex-direction: column; gap: 16px; padding: max(8px, env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); }
-.back { align-self: flex-start; display: flex; align-items: center; gap: 4px; min-height: 48px; margin-left: -8px; padding: 0 12px 0 4px; border: 0; background: none; font-size: 17px; font-weight: 600; }
+/* Кнопки: цель 56 px, между кнопками 12. Основная синяя, вторичная серая; на цветных экранах результата белые */
+.btn { display: flex; align-items: center; justify-content: center; min-height: 56px; padding: 0 20px; border: 0; border-radius: 12px; background: var(--accent); color: #fff; font-size: 18px; font-weight: 600; line-height: 1.15; text-align: center; transition: transform 160ms var(--ease), background-color 160ms var(--ease), filter 160ms var(--ease); }
+.btn:active { transform: scale(.97); }
+.btn:disabled { opacity: .4; cursor: default; transform: none; }
+.btn.line { background: var(--group); color: var(--ink); }
+@media (hover: hover) {
+  .btn:not(:disabled):hover { background: var(--accent-hover); }
+  .btn.line:not(:disabled):hover { background: #EBEBED; }
+}
+
+/* Камера: видео в скруглённой рамке на белом, кнопки под ней */
+.cam { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 12px; overflow: auto; padding: max(12px, env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)); background: var(--bg); }
+.stage { position: relative; flex: 1; min-height: 200px; overflow: hidden; isolation: isolate; border-radius: 28px; background: var(--ink); box-shadow: 0 0 0 1px var(--hair), var(--shadow); }
+.stage video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.aim { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+.frame { position: relative; width: min(64%, 260px); aspect-ratio: 1; filter: drop-shadow(0 1px 3px rgba(0,0,0,.35)); }
+.frame i { position: absolute; width: 36px; height: 36px; border: 0 solid #fff; transition: border-color 200ms var(--ease); }
+.frame i:nth-child(1) { top: 0; left: 0; border-width: 4px 0 0 4px; border-top-left-radius: 16px; }
+.frame i:nth-child(2) { top: 0; right: 0; border-width: 4px 4px 0 0; border-top-right-radius: 16px; }
+.frame i:nth-child(3) { bottom: 0; left: 0; border-width: 0 0 4px 4px; border-bottom-left-radius: 16px; }
+.frame i:nth-child(4) { bottom: 0; right: 0; border-width: 0 4px 4px 0; border-bottom-right-radius: 16px; }
+.cam.busy .frame i { border-color: #FF9F0A; }
+.cap { position: absolute; left: 50%; bottom: 16px; width: max-content; max-width: calc(100% - 32px); margin: 0; padding: 10px 18px; border-radius: 999px; transform: translateX(-50%); background: rgba(255,255,255,.9); color: var(--ink); font-size: 16px; font-weight: 400; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.14); }
+@supports (backdrop-filter: blur(1px)) { .cap { background: rgba(255,255,255,.78); backdrop-filter: blur(16px) saturate(180%); } }
+.bar { display: grid; gap: 12px; }
+
+/* Результат: во весь экран, цвет + иконка + заголовок. Цвет возникает сразу, содержимое выезжает за 240 мс */
+.res { position: fixed; inset: 0; display: flex; flex-direction: column; overflow: auto; padding: max(24px, env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom)); background: var(--r-bg); color: #fff; }
+.res.in { --r-bg: var(--ok); } .res.again { --r-bg: var(--warn); } .res.unknown { --r-bg: var(--bad); }
+.res.again, .res.sys { color: var(--ink); }
+.res.sys { --r-bg: var(--bg); }
+.res-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; padding: 16px 0; }
+.ico { display: grid; place-items: center; width: 96px; height: 96px; margin-bottom: 16px; border-radius: 50%; background: rgba(255,255,255,.2); }
+.ico svg { width: 48px; height: 48px; fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.res.again .ico { background: rgba(255,255,255,.4); }
+.res.again .ico svg { stroke: var(--ink); }
+.res.again :focus-visible { outline-color: var(--ink); }
+.res.sys .ico { background: rgba(255,59,48,.12); }
+.res.sys .ico svg { stroke: var(--bad); }
+.res h1 { margin: 0; font-size: clamp(34px, 10.5vw, 46px); line-height: 1.08; font-weight: 700; letter-spacing: -.02em; text-wrap: balance; overflow-wrap: break-word; }
+.res h1.long { font-size: clamp(26px, 8.2vw, 34px); }
+.res.sys h1 { font-size: 28px; line-height: 1.15; }
+.res .sub { margin: 0; font-size: 22px; line-height: 1.25; font-weight: 400; overflow-wrap: anywhere; }
+.res .state { margin: 8px 0 0; font-size: 28px; line-height: 1.15; font-weight: 600; font-variant-numeric: tabular-nums; }
+.res .note { margin: 8px 0 0; font-size: 20px; line-height: 1.3; font-weight: 400; max-width: 22em; }
+.res.sys .note { margin-top: 4px; font-size: 17px; line-height: 1.4; color: var(--muted); }
+.res-actions { display: grid; gap: 12px; }
+.res .btn { background: #fff; color: var(--r-bg); }
+.res.again .btn { color: var(--ink); }
+.res .btn.line { background: transparent; color: #fff; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.85); }
+.res.sys .btn { background: var(--accent); color: #fff; }
+.res.sys .btn.line { background: var(--group); color: var(--ink); box-shadow: none; }
+@media (hover: hover) {
+  .res .btn:not(:disabled):hover { background: #F5F5F7; }
+  .res .btn.line:not(:disabled):hover { background: rgba(255,255,255,.12); }
+  .res.sys .btn:not(:disabled):hover { background: var(--accent-hover); }
+  .res.sys .btn.line:not(:disabled):hover { background: #EBEBED; }
+}
+.timer { height: 4px; margin: 20px 0 0; border-radius: 2px; overflow: hidden; background: rgba(255,255,255,.28); }
+.timer i { display: block; height: 100%; border-radius: 2px; background: #fff; transform-origin: left; }
+@media (prefers-reduced-motion: no-preference) {
+  .timer i { animation: drain 4s linear forwards; }
+  .res-body, .res-actions { animation: pop 240ms var(--ease) backwards; }
+  .res-actions { animation-delay: 60ms; }
+}
+@keyframes drain { to { transform: scaleX(0); } }
+@keyframes pop { from { opacity: 0; transform: scale(.96); } }
+
+/* Поиск и гость: как настройки iOS. Группы на сером, поля от 56 px */
+.page { min-height: 100dvh; display: flex; flex-direction: column; gap: 20px; padding: max(8px, env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); }
+.back { align-self: flex-start; display: flex; align-items: center; gap: 2px; min-height: 48px; margin-left: -8px; padding: 0 12px 0 4px; border: 0; background: none; color: var(--accent); font-size: 17px; font-weight: 600; }
 .back svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-.page h1 { margin: 0; font-size: 26px; line-height: 1.15; font-weight: 800; }
-.field { display: grid; gap: 6px; }
-.field label { font-size: 15px; font-weight: 600; color: var(--muted); }
-.field input { width: 100%; height: 56px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-size: 18px; }
+.page h1 { margin: 0; font-size: 30px; line-height: 1.12; font-weight: 700; letter-spacing: -.02em; }
+.field { display: grid; gap: 8px; }
+.field label { padding: 0 16px; font-size: 15px; color: var(--muted); }
+.field input { width: 100%; height: 56px; padding: 0 16px; border: 0; border-radius: 12px; background: var(--group); font-size: 18px; }
+.field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
+#se-q { padding-left: 46px; background: var(--group) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236E6E73' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='10.5' cy='10.5' r='6.5'/%3E%3Cpath d='M15.5 15.5L20 20'/%3E%3C/svg%3E") no-repeat 14px center / 22px; }
 .form { display: grid; gap: 16px; }
-.hint { margin: 0; font-size: 15px; color: var(--muted); }
-.list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
-.row { display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 12px 12px 12px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.group { padding: 4px 0; border-radius: 20px; background: var(--group); }
+.group .field { grid-template-columns: 104px minmax(0, 1fr); align-items: center; gap: 0; min-height: 64px; padding: 8px 8px 8px 16px; }
+.group .field label { padding: 0; font-size: 17px; color: var(--ink); }
+.group .field input { height: 48px; padding: 0 14px; background: var(--bg); box-shadow: 0 0 0 1px var(--hair); font-size: 17px; }
+.hint { margin: -4px 0 0; padding: 0 16px; font-size: 15px; color: var(--muted); }
+.list { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.row { display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 8px 8px 8px 18px; border: 1px solid var(--hair); border-radius: 20px; background: var(--bg); box-shadow: var(--shadow); }
 .who { flex: 1; min-width: 0; display: grid; gap: 2px; }
-.who b { font-size: 18px; line-height: 1.2; font-weight: 700; overflow-wrap: anywhere; }
+.who b { font-size: 18px; line-height: 1.2; font-weight: 600; overflow-wrap: anywhere; }
 .who span { font-size: 15px; color: var(--muted); overflow-wrap: anywhere; }
-.row .btn { flex: none; min-height: 48px; padding: 0 18px; font-size: 16px; }
-.was { flex: none; max-width: 45%; font-size: 15px; font-weight: 700; text-align: right; color: var(--ok); font-variant-numeric: tabular-nums; }
+.row .btn { flex: none; min-height: 48px; padding: 0 20px; font-size: 17px; }
+.was { flex: none; max-width: 45%; padding-right: 10px; font-size: 15px; font-weight: 600; text-align: right; color: var(--ok); font-variant-numeric: tabular-nums; }
 .empty { display: grid; gap: 14px; }
-.empty p { margin: 0; font-size: 17px; }
-@media (hover: hover) { .btn:not(:disabled):hover { opacity: .9; } }
+.empty p { margin: 0; padding: 0 16px; font-size: 17px; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -95,8 +127,10 @@ button { touch-action: manipulation; cursor: pointer; }
 
 <main>
   <section id="s-camera" class="cam" aria-label="Камера" hidden>
-    <video id="video" playsinline muted autoplay aria-hidden="true"></video>
-    <div class="aim" aria-hidden="true"><div class="frame"></div><p class="cap" id="cap">Наведите камеру на QR участника</p></div>
+    <div class="stage">
+      <video id="video" playsinline muted autoplay aria-hidden="true"></video>
+      <div class="aim" aria-hidden="true"><div class="frame"><i></i><i></i><i></i><i></i></div><p class="cap" id="cap">Наведите камеру на QR участника</p></div>
+    </div>
     <div class="bar">
       <button type="button" class="btn" id="b-find">Найти по фамилии</button>
       <button type="button" class="btn line" id="b-guest">Гость без приглашения</button>
@@ -131,10 +165,12 @@ button { touch-action: manipulation; cursor: pointer; }
     <button type="button" class="back" id="g-back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Назад к камере</button>
     <h1>Гость без приглашения</h1>
     <form id="g-form" class="form" autocomplete="off">
-      <div class="field"><label for="g-first">Имя</label><input id="g-first" type="text" autocomplete="off" autocapitalize="words"></div>
-      <div class="field"><label for="g-last">Фамилия</label><input id="g-last" type="text" autocomplete="off" autocapitalize="words"></div>
-      <div class="field"><label for="g-pos">Должность</label><input id="g-pos" type="text" autocomplete="off" autocapitalize="sentences"></div>
-      <div class="field"><label for="g-comp">Компания</label><input id="g-comp" type="text" autocomplete="off" autocapitalize="words"></div>
+      <div class="group">
+        <div class="field"><label for="g-first">Имя</label><input id="g-first" type="text" autocomplete="off" autocapitalize="words"></div>
+        <div class="field"><label for="g-last">Фамилия</label><input id="g-last" type="text" autocomplete="off" autocapitalize="words"></div>
+        <div class="field"><label for="g-pos">Должность</label><input id="g-pos" type="text" autocomplete="off" autocapitalize="sentences"></div>
+        <div class="field"><label for="g-comp">Компания</label><input id="g-comp" type="text" autocomplete="off" autocapitalize="words"></div>
+      </div>
       <p class="hint" id="g-hint">Нужно имя или фамилия</p>
       <button type="submit" class="btn ink" id="g-ok" aria-describedby="g-hint" disabled>Отметить и напечатать</button>
     </form>

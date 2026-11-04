@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="robots" content="noindex">
+<title>Список участников</title>
+<style>
+/* Живой список для организатора: сколько пришло, кто пришёл, кто нет. Токены: memory-bank/features/design.md. Фон всегда белый, тёмной темы нет. */
+:root {
+  --bg: #FFFFFF; --group: #F5F5F7; --ink: #1D1D1F; --muted: #6E6E73; --hair: rgba(0,0,0,.08);
+  --accent: #0071E3;
+  /* Статусы: глубокие цвета держат AA и как текст на белом, и как заливка с белым текстом. Яркие #34C759 и #FF3B30 не проходят (2,2 и 3,6:1). */
+  --ok: #1E7F3C; --warn: #A35A00; --bad: #C4261D;
+  /* Светлые тоны под текстом статуса */
+  --ok-tint: rgba(52,199,89,.12); --bad-tint: rgba(255,59,48,.08);
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.04);
+  --ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); font: 400 16px/1.4 var(--font); -webkit-text-size-adjust: 100%; -webkit-font-smoothing: antialiased; }
+button, input { font: inherit; color: inherit; }
+button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+svg { flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: max(20px, env(safe-area-inset-top)) 16px calc(40px + env(safe-area-inset-bottom)); }
+
+/* Нет связи: данные на экране остаются, плашка говорит, на какой момент они сняты */
+.banner { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; padding: 12px 16px; border-radius: 20px; background: var(--bad-tint); color: var(--bad); font-size: 16px; line-height: 1.35; }
+.banner svg { width: 22px; height: 22px; }
+
+/* Шапка: заголовок, время обновления, кнопки. На телефоне кнопки под блоком явки */
+.top { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "title" "sync" "hero" "acts"; gap: 12px; }
+.title { grid-area: title; margin: 0; font-size: 30px; line-height: 1.12; font-weight: 700; letter-spacing: -.02em; }
+.sync { grid-area: sync; margin: -8px 0 0; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sync:empty { display: none; }
+.acts { grid-area: acts; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* Кнопки: цель 48 px, серые, как вторичные на странице «Вход» */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 20px; border: 0; border-radius: 12px; background: var(--group); color: var(--ink); font-size: 16px; font-weight: 600; line-height: 1.15; white-space: nowrap; transition: transform 160ms var(--ease), background-color 160ms var(--ease), opacity 160ms var(--ease); }
+.btn svg { width: 18px; height: 18px; }
+.btn:active { transform: scale(.97); }
+.btn:disabled { opacity: .4; cursor: default; transform: none; }
+@media (hover: hover) { .btn:not(:disabled):hover { background: #EBEBED; } }
+@media (prefers-reduced-motion: no-preference) { .btn[aria-busy="true"] svg { animation: spin .9s linear infinite; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Главный блок: «Пришли N из M». Один фокус на экране, всё остальное тише */
+.hero { grid-area: hero; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "count" "meter" "left"; gap: 14px; padding: 16px 20px 20px; border-radius: 28px; background: var(--group); }
+.hero.pending { visibility: hidden; }
+.count { grid-area: count; margin: 0; font-size: 22px; line-height: .9; font-variant-numeric: tabular-nums; }
+.count .n { margin: 0 .08em; font-size: clamp(56px, 18vw, 72px); font-weight: 700; letter-spacing: -.03em; }
+.count .of { font-size: 28px; color: var(--muted); }
+.left { grid-area: left; margin: 0; font-size: 17px; line-height: 1.2; color: var(--muted); font-variant-numeric: tabular-nums; }
+.left span { color: var(--ink); }
+.meter { grid-area: meter; height: 10px; border-radius: 999px; background: var(--hair); overflow: hidden; }
+.meter i { display: block; height: 100%; border-radius: 999px; background: var(--ok); clip-path: inset(0 var(--r, 100%) 0 0 round 999px); transition: clip-path 280ms var(--ease); }
+
+/* Фильтр и поиск липнут к верху: список на 320 строк листается, а поиск остаётся под рукой */
+.bar { position: sticky; top: 0; z-index: 2; display: grid; gap: 8px; margin: 8px -12px 0; padding: 8px 12px; background: var(--bg); }
+.bar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 16px; background: linear-gradient(var(--bg), rgba(255,255,255,0)); pointer-events: none; }
+.seg { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 2px; border-radius: 14px; background: var(--group); }
+.seg button { position: relative; z-index: 1; min-height: 48px; padding: 4px 6px; border: 0; border-radius: 12px; background: none; color: var(--muted); font-size: 15px; font-weight: 600; line-height: 1.2; text-align: center; transition: color 200ms var(--ease), transform 160ms var(--ease); }
+.seg button:active { transform: scale(.97); }
+.seg button[aria-pressed="true"] { color: var(--ink); }
+@media (hover: hover) { .seg button[aria-pressed="false"]:hover { color: var(--ink); } }
+.seg .n { font-weight: 400; font-variant-numeric: tabular-nums; }
+.thumb { position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc((100% - 4px) / 3); border-radius: 12px; background: var(--bg); box-shadow: 0 1px 3px rgba(0,0,0,.12), 0 0 0 .5px rgba(0,0,0,.04); transition: transform 240ms var(--ease); }
+.seg[data-f="in"] .thumb { transform: translateX(100%); }
+.seg[data-f="out"] .thumb { transform: translateX(200%); }
+.find input { width: 100%; height: 48px; padding: 0 14px 0 46px; border: 0; border-radius: 12px; background: var(--group) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236E6E73' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='10.5' cy='10.5' r='6.5'/%3E%3Cpath d='M15.5 15.5L20 20'/%3E%3C/svg%3E") no-repeat 14px center / 22px; font-size: 17px; }
+.find input::placeholder { color: var(--muted); opacity: 1; }
+.find input:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
+
+/* Список: на телефоне карточки, от 640 px таблица */
+.note { margin: 48px 0; text-align: center; font-size: 17px; color: var(--muted); }
+.card { margin-top: 4px; }
+table { display: block; width: 100%; }
+thead { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+tbody { display: grid; gap: 10px; }
+tr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "who who st" "id pr pr"; align-items: start; gap: 8px 12px; padding: 14px 16px; border: 1px solid var(--hair); border-radius: 20px; background: var(--bg); box-shadow: var(--shadow-sm); }
+td { display: block; min-width: 0; }
+.c-who { grid-area: who; } .c-st { grid-area: st; } .c-id { grid-area: id; } .c-pr { grid-area: pr; }
+.c-id { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.c-pr { font-size: 14px; color: var(--muted); }
+.c-pr.wait { color: var(--warn); }
+.nm { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.nm b { font-size: 17px; line-height: 1.25; font-weight: 600; overflow-wrap: anywhere; }
+.tag { padding: 1px 8px; border-radius: 999px; background: var(--group); color: var(--muted); font-size: 13px; line-height: 1.4; }
+.sub { margin-top: 2px; font-size: 15px; line-height: 1.3; color: var(--muted); overflow-wrap: anywhere; }
+.pill { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 12px 0 8px; border-radius: 999px; font-size: 14px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pill svg { width: 16px; height: 16px; }
+.pill.in { background: var(--ok-tint); color: var(--ok); font-weight: 600; }
+.pill.in svg { stroke-width: 2.6; }
+.pill.out { padding-left: 0; color: var(--muted); }
+
+@media (min-width: 640px) {
+  .wrap { padding: max(32px, env(safe-area-inset-top)) 32px calc(48px + env(safe-area-inset-bottom)); }
+  .top { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title acts" "sync acts" "hero hero"; align-items: center; gap: 4px 16px; }
+  .top .hero { margin-top: 16px; }
+  .title { font-size: 34px; }
+  .sync { margin: 0; align-self: start; }
+  .acts { display: flex; }
+  .hero { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "count left" "meter meter"; align-items: end; gap: 20px 24px; padding: 28px 32px; }
+  .count .n { font-size: 88px; }
+  .count .of { font-size: 32px; }
+  .left { padding-bottom: 6px; font-size: 18px; }
+  .meter { height: 12px; }
+  .bar { grid-template-columns: 420px minmax(0, 1fr); gap: 12px; margin-inline: -24px; padding: 12px 24px; }
+  .card { overflow: hidden; border: 1px solid var(--hair); border-radius: 20px; background: var(--bg); box-shadow: var(--shadow); }
+  table { display: table; border-collapse: collapse; }
+  thead { position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; }
+  tbody { display: table-row-group; }
+  tr { display: table-row; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+  td, th { display: table-cell; }
+  th { padding: 12px 16px; background: var(--group); color: var(--muted); font-size: 13px; font-weight: 400; letter-spacing: .02em; text-align: left; }
+  td { padding: 14px 16px; vertical-align: middle; border-top: 1px solid var(--hair); }
+  tbody tr:first-child td { border-top: 0; }
+  .c-id { width: 88px; }
+  .c-st { width: 188px; }
+  .c-pr { width: 152px; }
+}
+
+@media (min-width: 960px) {
+  .top { grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "title sync acts" "hero hero hero"; gap: 4px 16px; }
+  .sync { align-self: center; text-align: right; }
+}
+
+/* Ссылка не открывается: пустой экран с причиной и выходом, как на странице «Вход» */
+.fatal { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; text-align: center; }
+.fatal .ico { display: grid; place-items: center; width: 96px; height: 96px; margin-bottom: 16px; border-radius: 50%; background: var(--bad-tint); color: var(--bad); }
+.fatal .ico svg { width: 48px; height: 48px; stroke-width: 2.4; }
+.fatal h1 { margin: 0; font-size: 28px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; }
+.fatal p { margin: 4px 0 0; max-width: 22em; font-size: 17px; line-height: 1.4; color: var(--muted); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .pop, .banner, .fatal { animation: pop 240ms var(--ease) backwards; }
+}
+@keyframes pop { from { opacity: 0; transform: scale(.96); } }
+@media (prefers-reduced-motion: reduce) {
+  .thumb, .meter i, .seg button, .btn { transition: none; }
+  .seg button:active { transform: none; }
+}
+</style>
+</head>
+<body>
+<main class="wrap" id="app">
+  <div class="banner" id="banner" role="status" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/></svg>
+    <span id="banner-t"></span>
+  </div>
+
+  <div class="top">
+    <h1 class="title">Список участников</h1>
+    <p class="sync" id="sync"></p>
+
+    <section class="hero pending" id="hero">
+      <p class="count" id="count"><span class="lbl">Пришли</span> <span class="n" id="n-came">0</span> <span class="of">из <span id="n-total">0</span></span></p>
+      <p class="left">Ещё не пришли <span id="n-left">0</span></p>
+      <div class="meter" aria-hidden="true"><i id="fill"></i></div>
+    </section>
+
+    <div class="acts">
+      <button type="button" class="btn" id="b-refresh"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg>Обновить</button>
+      <button type="button" class="btn" id="b-csv" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 11l4.5 4.5 4.5-4.5M5 19.5h14"/></svg>Скачать CSV</button>
+    </div>
+  </div>
+
+  <div class="bar">
+    <div class="seg" id="seg" role="group" aria-label="Показать" data-f="all">
+      <i class="thumb" aria-hidden="true"></i>
+      <button type="button" data-f="all" aria-pressed="true">Все <span class="n" id="c-all">0</span></button>
+      <button type="button" data-f="in" aria-pressed="false">Пришли <span class="n" id="c-in">0</span></button>
+      <button type="button" data-f="out" aria-pressed="false">Не пришли <span class="n" id="c-out">0</span></button>
+    </div>
+    <div class="find">
+      <label class="sr" for="q">Поиск по имени, фамилии или компании</label>
+      <input id="q" type="search" placeholder="Имя, фамилия или компания" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+    </div>
+  </div>
+
+  <section id="list">
+    <p class="note" id="note" role="status">Загружаю список…</p>
+    <div class="card" id="card" hidden>
+      <table>
+        <thead><tr><th class="c-id" scope="col">ID</th><th class="c-who" scope="col">Участник</th><th class="c-st" scope="col">Статус</th><th class="c-pr" scope="col">Наклейка</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<section class="fatal" id="fatal" role="alert" hidden>
+  <div class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/></svg></div>
+  <h1 id="f-title"></h1>
+  <p id="f-sub" hidden></p>
+</section>
+
+<script src="config.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var API = window.FORUM_API || '';
+  // Секрет живёт только в хеше ссылки: на сервер не уходит, никуда не пишется и не логируется.
+  var K = new URLSearchParams(location.hash.slice(1)).get('k') || '';
+  // Пауза считается с конца прошлого запроса: ответ Google идёт 2–3 с, запросы не наезжают друг на друга.
+  var REFRESH_MS = 20000;
+  // Время в таблице пишет Code.gs в поясе проекта: «Обновлено» показываем в нём же, чтобы часы на экране сходились.
+  var clock = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Asia/Almaty', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  var words = new Intl.Collator('ru');
+
+  var people = [];      // последний удачный ответ; у каждого человека уже собранная строка таблицы (p.el)
+  var sig = '';         // ответ целиком текстом: не изменился, строки не пересобираем
+  var terms = [];       // слова из поля поиска
+  var filter = 'all';
+  var loaded = false, loading = false, dead = false, timer = 0, loadedAt = '';
+
+  var CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  var RING = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg>';
+
+  function h(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  // Регистр и ё/е не важны.
+  function norm(s) { return String(s).toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim(); }
+
+  // ---- Запрос ----
+  async function api() {
+    var ctl = new AbortController();
+    var t = setTimeout(function () { ctl.abort(); }, 15000);
+    try {
+      // Без Content-Type: тело уходит как text/plain и обходится без preflight, иначе Apps Script не примет.
+      var res = await fetch(API, { method: 'POST', body: JSON.stringify({ k: K, a: 'list' }), signal: ctl.signal });
+      return await res.json();
+    } finally { clearTimeout(t); }
+  }
+
+  async function load() {
+    if (loading || dead) return;
+    loading = true;
+    clearTimeout(timer);
+    $('b-refresh').setAttribute('aria-busy', 'true');
+    var res = null;
+    try { res = await api(); } catch (e) { res = null; }
+    loading = false;
+    $('b-refresh').removeAttribute('aria-busy');
+    if (res && res.ok && Array.isArray(res.people)) ingest(res.people);
+    else if (res && res.error === 'secret') return fatal('Ссылка устарела', 'Попросите новую ссылку у организатора');
+    else failed();
+    timer = setTimeout(load, REFRESH_MS);
+  }
+
+  // ---- Данные ----
+  function row(p) {
+    var tr = h('tr');
+    var who = h('td', 'c-who');
+    var nm = h('div', 'nm');
+    nm.append(h('b', '', p.name));
+    if (p.guest) nm.append(h('span', 'tag', 'гость'));
+    who.append(nm);
+    var sub = [p.position, p.company].filter(Boolean).join(', ');
+    if (sub) who.append(h('div', 'sub', sub));
+    var st = h('td', 'c-st');
+    var pill = h('span', 'pill ' + (p.in ? 'in' : 'out'));
+    pill.innerHTML = p.in ? CHECK : RING;
+    pill.append(p.in ? 'Пришёл' + (p.at ? ' ' + p.at : '') : 'Не пришёл');
+    st.append(pill);
+    var pr = h('td', 'c-pr' + (p.print === 'wait' ? ' wait' : ''), p.print === 'wait' ? 'ждёт печати' : p.print === 'done' ? 'напечатана' : '');
+    tr.append(h('td', 'c-id', p.id), who, st, pr);
+    return tr;
+  }
+
+  function ingest(list) {
+    var s = JSON.stringify(list);
+    loadedAt = clock.format(new Date());
+    if (!loaded || s !== sig) {
+      sig = s;
+      people = list.map(function (p) {
+        p.name = [p.first, p.last].filter(Boolean).join(' ');
+        p.hay = norm(p.first + ' ' + p.last + ' ' + p.company);
+        p.el = row(p);
+        return p;
+      });
+    }
+    var first = !loaded;
+    loaded = true;
+    $('banner').hidden = true;
+    $('sync').textContent = 'Обновлено ' + loadedAt;
+    paintHead();
+    paintList();
+    if (first) {
+      $('hero').classList.remove('pending');
+      $('hero').classList.add('pop');
+      $('list').classList.add('pop');
+    }
+  }
+
+  function failed() {
+    $('banner-t').textContent = loaded ? 'Нет связи. Данные на ' + loadedAt : 'Нет связи. Список не загружен';
+    $('banner').hidden = false;
+    $('sync').textContent = '';
+    if (!loaded) $('note').hidden = true;
+  }
+
+  function fatal(title, sub) {
+    dead = true;
+    clearTimeout(timer);
+    people = [];
+    $('rows').replaceChildren();
+    $('app').hidden = true;
+    $('f-title').textContent = title;
+    $('f-sub').textContent = sub || '';
+    $('f-sub').hidden = !sub;
+    $('fatal').hidden = false;
+  }
+
+  // ---- Экран ----
+  function paintHead() {
+    var total = people.length;
+    var came = people.filter(function (p) { return p.in; }).length;
+    $('n-came').textContent = came;
+    $('n-total').textContent = total;
+    $('n-left').textContent = total - came;
+    $('c-all').textContent = total;
+    $('c-in').textContent = came;
+    $('c-out').textContent = total - came;
+    $('fill').style.setProperty('--r', (total ? (1 - came / total) * 100 : 100) + '%');
+    $('b-csv').disabled = !total;
+  }
+
+  // Фамилия, а у гостя без фамилии имя; дальше имя и номер.
+  function key(p) { return p.last || p.first; }
+  function byName(a, b) { return words.compare(key(a), key(b)) || words.compare(a.first, b.first) || words.compare(a.id, b.id); }
+  function byNew(a, b) { return b.ts - a.ts || byName(a, b); }
+
+  function paintList() {
+    var view = people.filter(function (p) {
+      if (filter === 'in' && !p.in) return false;
+      if (filter === 'out' && p.in) return false;
+      return terms.every(function (t) { return p.hay.indexOf(t) >= 0; });
+    }).sort(filter === 'in' ? byNew : byName);
+    var rows = $('rows');
+    rows.replaceChildren.apply(rows, view.map(function (p) { return p.el; }));
+    $('card').hidden = !view.length;
+    $('note').hidden = !!view.length;
+    $('note').textContent = 'Никого не нашли';
+  }
+
+  // ---- CSV ----
+  // Разделитель «;»: русский Excel с «,» откроет всё в одном столбце. Ячейки на «=», «+», «-», «@» Excel принял бы за формулу.
+  function cell(v) {
+    v = String(v);
+    if (/^[=+\-@\t\r]/.test(v)) v = "'" + v;
+    return /[";\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  }
+  function download() {
+    if (!people.length) return;
+    var lines = [['ID', 'Имя', 'Фамилия', 'Должность', 'Компания', 'Пришёл', 'Время прихода']].concat(people.map(function (p) {
+      return [p.id, p.first, p.last, p.position, p.company, p.in ? 'да' : 'нет', p.at];
+    }));
+    // BOM в начале: без него Excel читает UTF-8 как ANSI и ломает кириллицу.
+    var text = '\uFEFF' + lines.map(function (r) { return r.map(cell).join(';'); }).join('\r\n') + '\r\n';
+    var url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
+    var a = h('a');
+    a.href = url;
+    a.download = 'uchastniki-' + new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Almaty' }).format(new Date()) + '.csv';
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  // ---- Запуск ----
+  $('b-refresh').addEventListener('click', load);
+  $('b-csv').addEventListener('click', download);
+  $('seg').addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (!b) return;
+    filter = b.dataset.f;
+    $('seg').dataset.f = filter;
+    Array.prototype.forEach.call($('seg').querySelectorAll('button'), function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+    paintList();
+  });
+  $('q').addEventListener('input', function () {
+    terms = norm(this.value).split(' ').filter(Boolean);
+    if (loaded) paintList();
+  });
+
+  // Новую ссылку вставили в эту же вкладку: меняется только хеш, страница сама не перезагрузится и осталась бы на старом секрете.
+  window.addEventListener('hashchange', function () { location.reload(); });
+
+  if (!K) fatal('Ссылка неполная', 'Откройте ссылку целиком');
+  else if (!API) fatal('Не задан адрес таблицы');
+  else load();
+})();
+</script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="light">
 <meta name="robots" content="noindex">
 <title>Станция печати</title>
 <style>
@@ -11,62 +11,65 @@
    @page берёт их отсюда скриптом (CSS не принимает var() в правиле @page), вёрстка наклейки тоже. */
 :root { --label-w: 58mm; --label-h: 40mm; }
 
-/* Станция печати на ноутбуке у входа. Токены из прототипа входа и печати. */
+/* Станция печати на ноутбуке у входа. Токены: memory-bank/features/design.md. Фон всегда белый, тёмной темы нет. */
 :root {
-  --bg: #f4f5f2; --surface: #ffffff; --ink: #16181d; --muted: #5d636b; --line: #dcdfda;
-  --focus: #1f5fa8; --warn: #9a5b00; --warn-soft: #fdf1dc;
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-}
-@media (prefers-color-scheme: dark) {
-  :root { --bg: #111316; --surface: #1a1d21; --ink: #eceeea; --muted: #a3a9ae; --line: #2c3035; --focus: #7fb0ec; --warn: #f2b84b; --warn-soft: #2a2213; }
+  --bg: #FFFFFF; --group: #F5F5F7; --ink: #1D1D1F; --muted: #6E6E73; --hair: rgba(0,0,0,.08);
+  --accent: #0071E3;
+  /* Панель статуса держит белый текст не ниже 4,5:1: яркие #34C759 и #FF3B30 дают с белым 2,2:1 и 3,6:1 */
+  --ok: #1E7F3C; --bad: #C4261D; --warn: #A35A00; --warn-soft: rgba(255,159,10,.14);
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+  --ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html, body { margin: 0; background: var(--bg); color: var(--ink); font: 400 16px/1.45 var(--font); }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font: 400 16px/1.45 var(--font); -webkit-font-smoothing: antialiased; }
 button { font: inherit; color: inherit; cursor: pointer; }
-:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
-.wrap { max-width: 1080px; margin: 0 auto; padding: 24px 32px 40px; display: grid; gap: 20px; }
-.rule { margin: 0; padding: 12px 16px; border-radius: 12px; background: var(--warn-soft); color: var(--warn); font-weight: 600; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 24px 32px 40px; display: grid; gap: 24px; }
+.rule { margin: 0; padding: 12px 18px; border-radius: 12px; background: var(--warn-soft); color: var(--warn); }
 
 .top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; }
-.status { display: flex; align-items: center; gap: 18px; min-height: 110px; padding: 20px 28px; border-radius: 18px; color: #fff; background: #1d7a4b; }
-.status.bad { background: #c8102e; }
-.status svg { flex: none; width: 48px; height: 48px; fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
-.status b { display: block; font-size: 32px; line-height: 1.15; font-weight: 800; }
-.status span { display: block; margin-top: 4px; font-size: 20px; line-height: 1.3; font-weight: 500; }
-.queue { display: flex; align-items: center; gap: 12px; align-self: stretch; margin: 0; padding: 0 28px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); font-size: 22px; font-weight: 600; white-space: nowrap; }
-.queue b { font-size: 52px; line-height: 1; font-weight: 800; font-variant-numeric: tabular-nums; }
+.status { display: flex; align-items: center; gap: 20px; min-height: 120px; padding: 24px 32px; border-radius: 28px; color: #fff; background: var(--ok); }
+.status.bad { background: var(--bad); }
+.status svg { flex: none; width: 64px; height: 64px; padding: 14px; border-radius: 50%; background: rgba(255,255,255,.2); fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.status b { display: block; font-size: 32px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; }
+.status span { display: block; margin-top: 4px; font-size: 20px; line-height: 1.3; font-weight: 400; }
+.queue { display: grid; grid-auto-flow: column; place-content: center; min-width: 240px; align-items: baseline; gap: 12px; align-self: stretch; margin: 0; padding: 0 40px; border: 1px solid var(--hair); border-radius: 28px; background: var(--bg); box-shadow: var(--shadow); color: var(--muted); font-size: 20px; white-space: nowrap; }
+.queue b { color: var(--ink); font-size: 56px; line-height: 1; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 
 .head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-h2 { margin: 0; font-size: 24px; line-height: 1.2; font-weight: 800; }
+h2 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spacing: -.01em; }
 .note { margin: -12px 0 0; color: var(--muted); }
-.btn { min-height: 48px; padding: 0 20px; border-radius: 12px; border: 2px solid var(--ink); background: var(--ink); color: var(--bg); font-size: 17px; font-weight: 700; }
-.btn.line { background: transparent; color: var(--ink); border-color: var(--line); }
-.btn:disabled { opacity: .45; cursor: default; }
-@media (hover: hover) { .btn:not(:disabled):hover { opacity: .88; } }
+.btn { min-height: 48px; padding: 0 20px; border: 0; border-radius: 12px; background: var(--group); color: var(--ink); font-size: 17px; font-weight: 600; transition: transform 160ms var(--ease), background-color 160ms var(--ease); }
+.btn:active { transform: scale(.97); }
+.btn:disabled { opacity: .4; cursor: default; transform: none; }
+@media (hover: hover) { .btn:not(:disabled):hover { background: #EBEBED; } }
 
-.done { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
-.card { display: flex; align-items: center; gap: 12px; min-height: 68px; padding: 10px 10px 10px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+/* Последние напечатанные: список-группа, строки через тонкие разделители */
+.done { margin: 0; padding: 0; list-style: none; overflow: hidden; border-radius: 20px; background: var(--group); }
+.card { position: relative; display: flex; align-items: center; gap: 12px; min-height: 68px; padding: 10px 12px 10px 20px; }
+.card + .card::before { content: ""; position: absolute; top: 0; left: 20px; right: 0; height: 1px; background: var(--hair); }
 .who { flex: 1; min-width: 0; display: grid; }
-.who b { font-size: 18px; line-height: 1.25; font-weight: 700; overflow-wrap: anywhere; }
+.who b { font-size: 18px; line-height: 1.25; font-weight: 600; overflow-wrap: anywhere; }
 .who span { font-size: 15px; color: var(--muted); overflow-wrap: anywhere; }
-.card .btn { flex: none; min-height: 44px; padding: 0 16px; font-size: 16px; }
-.empty { margin: 0; color: var(--muted); font-size: 17px; }
+.card .btn { flex: none; background: var(--bg); box-shadow: 0 0 0 1px var(--hair), 0 1px 2px rgba(0,0,0,.04); font-size: 16px; }
+@media (hover: hover) { .card .btn:not(:disabled):hover { background: #FAFAFC; } }
+.empty { margin: 0; padding: 28px 20px; border-radius: 20px; background: var(--group); color: var(--muted); font-size: 17px; text-align: center; }
 
 /* Узкий экран (телефон, половина экрана ноутбука): всё в одну колонку, статус и очередь читаются целиком. */
 @media (max-width: 720px) {
   .wrap { padding: 16px 16px 32px; gap: 16px; }
   .top { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-  .status { min-height: 0; padding: 16px 18px; gap: 14px; }
-  .status svg { width: 36px; height: 36px; }
+  .status { min-height: 0; padding: 20px; gap: 16px; }
+  .status svg { width: 48px; height: 48px; padding: 10px; }
   .status b { font-size: 22px; }
   .status span { font-size: 16px; }
-  .queue { justify-content: space-between; padding: 12px 18px; font-size: 18px; }
-  .queue b { font-size: 36px; }
+  .queue { grid-auto-flow: column; place-content: space-between; min-width: 0; padding: 16px 20px; font-size: 18px; }
+  .queue b { font-size: 40px; }
   .head { flex-wrap: wrap; }
   h2 { font-size: 20px; }
-  .done { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* Наклейка: только чёрный на белом. Вне печати прячется за краем экрана, но остаётся в вёрстке, чтобы мерить текст.
@@ -290,7 +293,13 @@ h2 { margin: 0; font-size: 24px; line-height: 1.2; font-weight: 800; }
 
   // Телефон или планшет станцией не работает: печатать ему некуда, а вторая станция дала бы двойные наклейки.
   var touchOnly = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-  if (touchOnly) { stop('phone'); $('b-test').hidden = true; }
+  if (touchOnly) {
+    stop('phone');
+    // На телефоне остаётся только объяснение: очередь и список здесь ничего не значат.
+    document.querySelector('.rule').hidden = true;
+    $('queue').hidden = true;
+    document.querySelector('.top').nextElementSibling.hidden = true;
+  }
   else if (!K) stop('link');
   else if (!API) stop('addr');
   else { keepAwake(); poll(); }
