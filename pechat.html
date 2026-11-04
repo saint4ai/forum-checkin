@@ -54,6 +54,21 @@ h2 { margin: 0; font-size: 24px; line-height: 1.2; font-weight: 800; }
 .card .btn { flex: none; min-height: 44px; padding: 0 16px; font-size: 16px; }
 .empty { margin: 0; color: var(--muted); font-size: 17px; }
 
+/* Узкий экран (телефон, половина экрана ноутбука): всё в одну колонку, статус и очередь читаются целиком. */
+@media (max-width: 720px) {
+  .wrap { padding: 16px 16px 32px; gap: 16px; }
+  .top { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .status { min-height: 0; padding: 16px 18px; gap: 14px; }
+  .status svg { width: 36px; height: 36px; }
+  .status b { font-size: 22px; }
+  .status span { font-size: 16px; }
+  .queue { justify-content: space-between; padding: 12px 18px; font-size: 18px; }
+  .queue b { font-size: 36px; }
+  .head { flex-wrap: wrap; }
+  h2 { font-size: 20px; }
+  .done { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* Наклейка: только чёрный на белом. Вне печати прячется за краем экрана, но остаётся в вёрстке, чтобы мерить текст.
    Вид по образцу Дианы (private/images/1623-…): как написано ручкой — тонко, влево, лесенкой, с лёгким наклоном. */
 #sticker { position: fixed; left: -10000px; top: 0; width: var(--label-w); height: var(--label-h); padding: 2.2mm 3mm; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; overflow: hidden; background: #fff; color: #000; text-align: left; font-family: "Caveat", "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive; font-weight: 700; line-height: 1.02; }
