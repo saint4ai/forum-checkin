@@ -17,8 +17,22 @@
   --ok-tint: rgba(52,199,89,.12); --bad-tint: rgba(255,59,48,.08);
   --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
   --shadow-sm: 0 1px 2px rgba(0,0,0,.04);
+  /* Liquid Glass поверх белого: заливка, кромка (светлый верх + волосок), тень. Размытие только у липкой панели:
+     под ней едет список. Кнопки шапки лежат на белом, там размытие ничего не меняет и не включается. */
+  --glass: rgba(255,255,255,.92); --glass-blur: none;
+  --glass-rim: inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 .5px rgba(0,0,0,.08);
+  --glass-shadow: 0 1px 2px rgba(0,0,0,.04), 0 6px 16px rgba(0,0,0,.07);
+  /* Мягкое свечение за стеклом: страница остаётся белой, стеклу есть что преломлять */
+  --glow: radial-gradient(ellipse 560px 300px at 8% 0, rgba(0,113,227,.08), transparent 70%), radial-gradient(ellipse 460px 260px at 96% 4%, rgba(90,200,250,.09), transparent 70%);
   --ease: cubic-bezier(0.23, 1, 0.32, 1);
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root { --glass: rgba(255,255,255,.72); --glass-blur: blur(24px) saturate(180%); }
+}
+/* Пользователь просит меньше прозрачности или больше контраста: стекло становится почти сплошным */
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  :root { --glass: rgba(255,255,255,.97); --glass-blur: none; }
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -29,76 +43,95 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 svg { flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 
-.wrap { max-width: 1080px; margin: 0 auto; padding: max(20px, env(safe-area-inset-top)) 16px calc(40px + env(safe-area-inset-bottom)); }
+.wrap { position: relative; z-index: 0; max-width: 1080px; margin: 0 auto; padding: max(20px, env(safe-area-inset-top)) 16px calc(40px + env(safe-area-inset-bottom)); }
+.wrap::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: var(--glow); }
 
 /* Нет связи: данные на экране остаются, плашка говорит, на какой момент они сняты */
-.banner { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; padding: 12px 16px; border-radius: 20px; background: var(--bad-tint); color: var(--bad); font-size: 16px; line-height: 1.35; }
+.banner { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; padding: 12px 16px; border-radius: 20px; background: var(--bad-tint); color: var(--bad); font-size: 16px; line-height: 1.35; text-wrap: balance; }
 .banner svg { width: 22px; height: 22px; }
 
 /* Шапка: заголовок, время обновления, кнопки. На телефоне кнопки под блоком явки */
 .top { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "title" "sync" "hero" "acts"; gap: 12px; }
-.title { grid-area: title; margin: 0; font-size: 30px; line-height: 1.12; font-weight: 700; letter-spacing: -.02em; }
-.sync { grid-area: sync; margin: -8px 0 0; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.title { grid-area: title; margin: 0; font-size: 30px; line-height: 1.12; font-weight: 700; letter-spacing: -.02em; text-wrap: balance; }
+.sync { grid-area: sync; margin: -8px 0 0; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .sync:empty { display: none; }
 .acts { grid-area: acts; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
-/* Кнопки: цель 48 px, серые, как вторичные на странице «Вход» */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 20px; border: 0; border-radius: 12px; background: var(--group); color: var(--ink); font-size: 16px; font-weight: 600; line-height: 1.15; white-space: nowrap; transition: transform 160ms var(--ease), background-color 160ms var(--ease), opacity 160ms var(--ease); }
+/* Кнопки: цель 48 px, стеклянные: светлая заливка, светлая кромка сверху, волосок и мягкая тень */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 20px; border: 0; border-radius: 14px; background: var(--glass); color: var(--ink); font-size: 16px; font-weight: 600; line-height: 1.15; white-space: nowrap; box-shadow: var(--glass-rim), var(--glass-shadow); transition: transform 160ms var(--ease), background-color 160ms var(--ease), opacity 160ms var(--ease); }
 .btn svg { width: 18px; height: 18px; }
 .btn:active { transform: scale(.97); }
-.btn:disabled { opacity: .4; cursor: default; transform: none; }
-@media (hover: hover) { .btn:not(:disabled):hover { background: #EBEBED; } }
+.btn:disabled { opacity: .4; cursor: default; transform: none; box-shadow: var(--glass-rim); }
+@media (hover: hover) { .btn:not(:disabled):hover { background: #fff; } }
 @media (prefers-reduced-motion: no-preference) { .btn[aria-busy="true"] svg { animation: spin .9s linear infinite; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Главный блок: «Пришли N из M». Один фокус на экране, всё остальное тише */
-.hero { grid-area: hero; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "count" "meter" "left"; gap: 14px; padding: 16px 20px 20px; border-radius: 28px; background: var(--group); }
+/* Главный блок: «Пришли N из M». Один фокус на экране, всё остальное тише. Белая карточка, глубина тенью */
+.hero { grid-area: hero; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "count" "meter" "left"; gap: 14px; padding: 16px 20px 20px; border-radius: 28px; background-color: var(--bg); background-image: linear-gradient(180deg, #FFFFFF, #FAFAFC); box-shadow: 0 0 0 1px var(--hair), var(--shadow); }
 .hero.pending { visibility: hidden; }
-.count { grid-area: count; margin: 0; font-size: 22px; line-height: .9; font-variant-numeric: tabular-nums; }
-.count .n { margin: 0 .08em; font-size: clamp(56px, 18vw, 72px); font-weight: 700; letter-spacing: -.03em; }
+.count { grid-area: count; margin: 0; font-size: 22px; line-height: .9; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.count .n { margin: 0 .08em; font-size: clamp(56px, 16.5vw, 72px); font-weight: 700; letter-spacing: -.03em; }
 .count .of { font-size: 28px; color: var(--muted); }
-.left { grid-area: left; margin: 0; font-size: 17px; line-height: 1.2; color: var(--muted); font-variant-numeric: tabular-nums; }
+.left { grid-area: left; margin: 0; font-size: 17px; line-height: 1.2; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .left span { color: var(--ink); }
 .meter { grid-area: meter; height: 10px; border-radius: 999px; background: var(--hair); overflow: hidden; }
 .meter i { display: block; height: 100%; border-radius: 999px; background: var(--ok); clip-path: inset(0 var(--r, 100%) 0 0 round 999px); transition: clip-path 280ms var(--ease); }
+/* Узкий телефон: три цифры («Пришли 320 из 320») должны встать в одну строку */
+@media (max-width: 389px) {
+  .count { font-size: 19px; }
+  .count .n { font-size: clamp(42px, 14.2vw, 56px); }
+  .count .of { font-size: 23px; }
+}
 
-/* Фильтр и поиск липнут к верху: список на 320 строк листается, а поиск остаётся под рукой */
-.bar { position: sticky; top: 0; z-index: 2; display: grid; gap: 8px; margin: 8px -12px 0; padding: 8px 12px; background: var(--bg); }
-.bar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 16px; background: linear-gradient(var(--bg), rgba(255,255,255,0)); pointer-events: none; }
+/* Фильтр и поиск липнут к верху: список на 320 строк листается, а поиск остаётся под рукой.
+   Единственное стекло с размытием: под ним едет список. Снизу волосок и мягкая тень вместо жёсткой границы */
+.bar { position: sticky; top: 0; z-index: 2; display: grid; gap: 8px; margin: 8px -16px 0; padding: 8px 16px; background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: 0 .5px 0 rgba(0,0,0,.1), 0 10px 24px -16px rgba(0,0,0,.16); }
 .seg { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 2px; border-radius: 14px; background: var(--group); }
 .seg button { position: relative; z-index: 1; min-height: 48px; padding: 4px 6px; border: 0; border-radius: 12px; background: none; color: var(--muted); font-size: 15px; font-weight: 600; line-height: 1.2; text-align: center; transition: color 200ms var(--ease), transform 160ms var(--ease); }
 .seg button:active { transform: scale(.97); }
 .seg button[aria-pressed="true"] { color: var(--ink); }
 @media (hover: hover) { .seg button[aria-pressed="false"]:hover { color: var(--ink); } }
 .seg .n { font-weight: 400; font-variant-numeric: tabular-nums; }
-.thumb { position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc((100% - 4px) / 3); border-radius: 12px; background: var(--bg); box-shadow: 0 1px 3px rgba(0,0,0,.12), 0 0 0 .5px rgba(0,0,0,.04); transition: transform 240ms var(--ease); }
+.thumb { position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc((100% - 4px) / 3); border-radius: 12px; background: var(--bg); box-shadow: inset 0 1px 0 #fff, 0 1px 3px rgba(0,0,0,.12), 0 4px 10px rgba(0,0,0,.05), 0 0 0 .5px rgba(0,0,0,.04); transition: transform 240ms var(--ease); }
 .seg[data-f="in"] .thumb { transform: translateX(100%); }
 .seg[data-f="out"] .thumb { transform: translateX(200%); }
 .find input { width: 100%; height: 48px; padding: 0 14px 0 46px; border: 0; border-radius: 12px; background: var(--group) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236E6E73' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='10.5' cy='10.5' r='6.5'/%3E%3Cpath d='M15.5 15.5L20 20'/%3E%3C/svg%3E") no-repeat 14px center / 22px; font-size: 17px; }
 .find input::placeholder { color: var(--muted); opacity: 1; }
 .find input:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
 
-/* Список: на телефоне карточки, от 640 px таблица */
-.note { margin: 48px 0; text-align: center; font-size: 17px; color: var(--muted); }
+/* Список: на телефоне карточки (имя и данные сверху, статус и номер внизу), от 720 px таблица */
+.note { margin: 48px 0; text-align: center; font-size: 17px; color: var(--muted); text-wrap: pretty; }
 .card { margin-top: 4px; }
 table { display: block; width: 100%; }
 thead { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 tbody { display: grid; gap: 10px; }
-tr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "who who st" "id pr pr"; align-items: start; gap: 8px 12px; padding: 14px 16px; border: 1px solid var(--hair); border-radius: 20px; background: var(--bg); box-shadow: var(--shadow-sm); }
+tr { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "who who who" "st id pr"; align-items: center; gap: 10px 0; padding: 14px 16px; border: 1px solid var(--hair); border-radius: 20px; background: var(--bg); box-shadow: var(--shadow-sm); }
 td { display: block; min-width: 0; }
 .c-who { grid-area: who; } .c-st { grid-area: st; } .c-id { grid-area: id; } .c-pr { grid-area: pr; }
 .c-id { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.c-pr { font-size: 14px; color: var(--muted); }
+.c-pr { padding-left: 12px; font-size: 14px; color: var(--muted); white-space: nowrap; }
+.c-pr:empty { padding: 0; }
 .c-pr.wait { color: var(--warn); }
 .nm { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-.nm b { font-size: 17px; line-height: 1.25; font-weight: 600; overflow-wrap: anywhere; }
-.tag { padding: 1px 8px; border-radius: 999px; background: var(--group); color: var(--muted); font-size: 13px; line-height: 1.4; }
-.sub { margin-top: 2px; font-size: 15px; line-height: 1.3; color: var(--muted); overflow-wrap: anywhere; }
+.nm b { font-size: 17px; line-height: 1.25; font-weight: 600; text-wrap: balance; overflow-wrap: break-word; }
+.tag { padding: 1px 8px; border-radius: 999px; background: var(--group); color: var(--muted); font-size: 13px; line-height: 1.4; white-space: nowrap; }
+.sub { margin-top: 2px; font-size: 15px; line-height: 1.3; color: var(--muted); text-wrap: pretty; overflow-wrap: break-word; }
+/* Статус: «Пришёл ЧЧ:ММ» зелёная капсула с галочкой в круге, «Не пришёл» тихий серый. Время не переносится */
 .pill { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 12px 0 8px; border-radius: 999px; font-size: 14px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pill svg { width: 16px; height: 16px; }
-.pill.in { background: var(--ok-tint); color: var(--ok); font-weight: 600; }
-.pill.in svg { stroke-width: 2.6; }
+.pill.in { padding-left: 5px; background-color: var(--ok-tint); background-image: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0)); color: var(--ok); font-weight: 600; box-shadow: inset 0 0 0 1px rgba(30,127,60,.14); }
+.pill.in svg { width: 18px; height: 18px; padding: 3px; border-radius: 50%; background: var(--ok); stroke: #fff; stroke-width: 3.2; }
 .pill.out { padding-left: 0; color: var(--muted); }
+
+/* Телефон: число в фильтре под названием, всегда. Одной строкой «Не пришли 137» на узком экране переносилось бы только у одной кнопки из трёх */
+@media (max-width: 519px) { .seg .n { display: block; } }
+/* 320 px: две кнопки шапки и строка статуса не помещаются в обычных отступах */
+@media (max-width: 339px) {
+  .acts .btn { padding: 0 10px; gap: 6px; font-size: 15px; }
+  .find input::placeholder { font-size: 15px; }
+  tr { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "who who" "st st" "id pr"; }
+  .c-pr { padding-left: 12px; }
+}
 
 @media (min-width: 640px) {
   .wrap { padding: max(32px, env(safe-area-inset-top)) 32px calc(48px + env(safe-area-inset-bottom)); }
@@ -108,11 +141,15 @@ td { display: block; min-width: 0; }
   .sync { margin: 0; align-self: start; }
   .acts { display: flex; }
   .hero { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "count left" "meter meter"; align-items: end; gap: 20px 24px; padding: 28px 32px; }
-  .count .n { font-size: 88px; }
+  .count .n { font-size: clamp(60px, 9.5vw, 88px); }
   .count .of { font-size: 32px; }
   .left { padding-bottom: 6px; font-size: 18px; }
   .meter { height: 12px; }
-  .bar { grid-template-columns: 420px minmax(0, 1fr); gap: 12px; margin-inline: -24px; padding: 12px 24px; }
+  .bar { grid-template-columns: 420px minmax(0, 1fr); gap: 12px; margin-inline: -32px; padding: 12px 32px; }
+}
+
+/* Таблица с четырьмя столбцами нужна от 720 px: уже имя в столбце рвалось бы посреди слова */
+@media (min-width: 720px) {
   .card { overflow: hidden; border: 1px solid var(--hair); border-radius: 20px; background: var(--bg); box-shadow: var(--shadow); }
   table { display: table; border-collapse: collapse; }
   thead { position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; }
@@ -120,7 +157,7 @@ td { display: block; min-width: 0; }
   tr { display: table-row; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
   td, th { display: table-cell; }
   th { padding: 12px 16px; background: var(--group); color: var(--muted); font-size: 13px; font-weight: 400; letter-spacing: .02em; text-align: left; }
-  td { padding: 14px 16px; vertical-align: middle; border-top: 1px solid var(--hair); }
+  td, td.c-pr, td.c-pr:empty { padding: 14px 16px; vertical-align: middle; border-top: 1px solid var(--hair); }
   tbody tr:first-child td { border-top: 0; }
   .c-id { width: 88px; }
   .c-st { width: 188px; }
@@ -136,8 +173,8 @@ td { display: block; min-width: 0; }
 .fatal { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; text-align: center; }
 .fatal .ico { display: grid; place-items: center; width: 96px; height: 96px; margin-bottom: 16px; border-radius: 50%; background: var(--bad-tint); color: var(--bad); }
 .fatal .ico svg { width: 48px; height: 48px; stroke-width: 2.4; }
-.fatal h1 { margin: 0; font-size: 28px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; }
-.fatal p { margin: 4px 0 0; max-width: 22em; font-size: 17px; line-height: 1.4; color: var(--muted); }
+.fatal h1 { margin: 0; font-size: 28px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; text-wrap: balance; }
+.fatal p { margin: 4px 0 0; max-width: 22em; font-size: 17px; line-height: 1.4; color: var(--muted); text-wrap: pretty; }
 
 @media (prefers-reduced-motion: no-preference) {
   .pop, .banner, .fatal { animation: pop 240ms var(--ease) backwards; }

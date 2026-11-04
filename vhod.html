@@ -14,9 +14,26 @@
   /* Заливки экранов результата: на зелёном и красном белый текст не ниже 4,5:1 (яркие #34C759 и #FF3B30 дают 2,2:1 и 3,6:1).
      Оранжевый системный, текст на нём чернилами (8,2:1): так три экрана различимы и по яркости, не только по цвету */
   --ok: #1E7F3C; --warn: #FF9F0A; --bad: #C4261D;
+  /* Текст белой стеклянной кнопки на цветном экране: темнее заливки экрана, чтобы на полупрозрачном белом держать 4,5:1 */
+  --ok-ink: #14612B; --bad-ink: #A81F17;
   --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+  /* Liquid Glass поверх белого: заливка, кромка (светлый верх + волосок), тень. Размытие только у подписи и дока над камерой:
+     под ними живое видео. Остальное стекло лежит на плоском цвете, там размытие ничего не меняет и не включается. */
+  --glass: rgba(255,255,255,.92); --glass-blur: none;
+  --glass-rim: inset 0 1px 0 rgba(255,255,255,.9), inset 0 0 0 1px rgba(255,255,255,.3), 0 0 0 .5px rgba(0,0,0,.08);
+  --glass-shadow: 0 1px 2px rgba(0,0,0,.06), 0 10px 30px rgba(0,0,0,.16);
+  /* Мягкое свечение за стеклом на белых страницах: страница остаётся белой, стеклу есть что преломлять */
+  --glow: radial-gradient(ellipse 480px 280px at 8% 0, rgba(0,113,227,.08), transparent 70%), radial-gradient(ellipse 420px 240px at 100% 6%, rgba(90,200,250,.09), transparent 70%);
   --ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --spring: cubic-bezier(0.34, 1.4, 0.64, 1);
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root { --glass: rgba(255,255,255,.7); --glass-blur: blur(24px) saturate(180%); }
+}
+/* Пользователь просит меньше прозрачности или больше контраста: стекло становится почти сплошным */
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  :root { --glass: rgba(255,255,255,.97); --glass-blur: none; }
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -27,79 +44,101 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .res :focus-visible { outline-color: #fff; }
 
-/* Кнопки: цель 56 px, между кнопками 12. Основная синяя, вторичная серая; на цветных экранах результата белые */
-.btn { display: flex; align-items: center; justify-content: center; min-height: 56px; padding: 0 20px; border: 0; border-radius: 12px; background: var(--accent); color: #fff; font-size: 18px; font-weight: 600; line-height: 1.15; text-align: center; transition: transform 160ms var(--ease), background-color 160ms var(--ease), filter 160ms var(--ease); }
+/* Кнопки: цель 56 px, между кнопками 12. Основная синяя с бликом сверху, вторичная серая; на цветных экранах результата стеклянные */
+.btn { display: flex; align-items: center; justify-content: center; min-height: 56px; padding: 0 20px; border: 0; border-radius: 12px; background: var(--accent); color: #fff; font-size: 18px; font-weight: 600; line-height: 1.15; text-align: center; box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 1px 2px rgba(0,113,227,.28), 0 6px 14px -4px rgba(0,113,227,.35); transition: transform 160ms var(--ease), background-color 160ms var(--ease), filter 160ms var(--ease); }
 .btn:active { transform: scale(.97); }
-.btn:disabled { opacity: .4; cursor: default; transform: none; }
-.btn.line { background: var(--group); color: var(--ink); }
+.btn:disabled { opacity: .4; cursor: default; transform: none; box-shadow: none; }
+.btn.line { background: var(--group); color: var(--ink); box-shadow: inset 0 0 0 .5px rgba(0,0,0,.06); }
 @media (hover: hover) {
   .btn:not(:disabled):hover { background: var(--accent-hover); }
   .btn.line:not(:disabled):hover { background: #EBEBED; }
 }
 
-/* Камера: видео в скруглённой рамке на белом, кнопки под ней */
-.cam { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 12px; overflow: auto; padding: max(12px, env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)); background: var(--bg); }
-.stage { position: relative; flex: 1; min-height: 200px; overflow: hidden; isolation: isolate; border-radius: 28px; background: var(--ink); box-shadow: 0 0 0 1px var(--hair), var(--shadow); }
+/* Камера: видео в скруглённой рамке на белом. Подпись сверху и док с кнопками снизу лежат на видео стеклом,
+   рамка наведения центруется в свободной середине (отступы сверху и снизу задают --dock) */
+.cam { position: fixed; inset: 0; display: grid; grid-template: minmax(200px, 1fr) / minmax(0, 1fr); overflow: auto; padding: max(12px, env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)); background: var(--bg); --dock: 164px; }
+.cam.single { --dock: 100px; }
+.stage { position: relative; grid-area: 1 / 1; overflow: hidden; isolation: isolate; border-radius: 28px; background: var(--ink); box-shadow: 0 0 0 1px var(--hair), var(--shadow); }
 .stage video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.aim { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
-.frame { position: relative; width: min(64%, 260px); aspect-ratio: 1; filter: drop-shadow(0 1px 3px rgba(0,0,0,.35)); }
+.aim { position: absolute; inset: 0; display: grid; place-items: center; padding: 72px 0 var(--dock); pointer-events: none; }
+.frame { position: relative; width: min(64%, 260px); width: min(64%, 260px, max(96px, calc(100dvh - 100px - var(--dock)))); aspect-ratio: 1; filter: drop-shadow(0 1px 3px rgba(0,0,0,.35)); }
 .frame i { position: absolute; width: 36px; height: 36px; border: 0 solid #fff; transition: border-color 200ms var(--ease); }
 .frame i:nth-child(1) { top: 0; left: 0; border-width: 4px 0 0 4px; border-top-left-radius: 16px; }
 .frame i:nth-child(2) { top: 0; right: 0; border-width: 4px 4px 0 0; border-top-right-radius: 16px; }
 .frame i:nth-child(3) { bottom: 0; left: 0; border-width: 0 0 4px 4px; border-bottom-left-radius: 16px; }
 .frame i:nth-child(4) { bottom: 0; right: 0; border-width: 0 4px 4px 0; border-bottom-right-radius: 16px; }
 .cam.busy .frame i { border-color: #FF9F0A; }
-.cap { position: absolute; left: 50%; bottom: 16px; width: max-content; max-width: calc(100% - 32px); margin: 0; padding: 10px 18px; border-radius: 999px; transform: translateX(-50%); background: rgba(255,255,255,.9); color: var(--ink); font-size: 16px; font-weight: 400; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.14); }
-@supports (backdrop-filter: blur(1px)) { .cap { background: rgba(255,255,255,.78); backdrop-filter: blur(16px) saturate(180%); } }
-.bar { display: grid; gap: 12px; }
+.cap { position: absolute; left: 50%; top: 16px; width: max-content; max-width: calc(100% - 24px); margin: 0; padding: 10px 18px; border-radius: 22px; transform: translateX(-50%); background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); color: var(--ink); font-size: 16px; font-weight: 400; line-height: 1.3; text-align: center; text-wrap: balance; box-shadow: var(--glass-rim), var(--glass-shadow); }
+.bar { position: relative; grid-area: 1 / 1; align-self: end; z-index: 1; display: grid; gap: 8px; margin: 12px; padding: 8px; border-radius: 28px; background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-rim), var(--glass-shadow); }
+.bar .btn { border-radius: 20px; }
+.bar .btn.line { background: rgba(0,0,0,.055); box-shadow: none; }
+@media (hover: hover) { .bar .btn.line:not(:disabled):hover { background: rgba(0,0,0,.09); } }
+@media (max-width: 340px) { .cap { padding: 9px 12px; font-size: 14px; } }
+/* Низкий экран (телефон лёжа): кнопки в один ряд, чтобы док не съедал камеру */
+@media (max-height: 480px) { .cam, .cam.single { --dock: 100px; } .bar { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); } }
 
-/* Результат: во весь экран, цвет + иконка + заголовок. Цвет возникает сразу, содержимое выезжает за 240 мс */
-.res { position: fixed; inset: 0; display: flex; flex-direction: column; overflow: auto; padding: max(24px, env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom)); background: var(--r-bg); color: #fff; }
-.res.in { --r-bg: var(--ok); } .res.again { --r-bg: var(--warn); } .res.unknown { --r-bg: var(--bad); }
+/* Результат: во весь экран, цвет + иконка + заголовок. Цвет возникает сразу, содержимое выезжает за 240 мс.
+   Цвет заливки остаётся прежним сверху, вниз он глубже: вертикальный градиент того же тона только темнее, так что контраст белого текста не падает */
+.res { position: fixed; inset: 0; display: flex; flex-direction: column; overflow: auto; padding: max(24px, env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom)); background-color: var(--r-bg); background-image: linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(0,0,0,.16)); color: #fff; }
+.res.in { --r-bg: var(--ok); --r-ink: var(--ok-ink); } .res.again { --r-bg: var(--warn); --r-ink: var(--ink); } .res.unknown { --r-bg: var(--bad); --r-ink: var(--bad-ink); }
 .res.again, .res.sys { color: var(--ink); }
-.res.sys { --r-bg: var(--bg); }
+.res.again { background-image: linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(0,0,0,.1)); }
+.res.sys { --r-bg: var(--bg); background-image: none; }
 .res-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; padding: 16px 0; }
-.ico { display: grid; place-items: center; width: 96px; height: 96px; margin-bottom: 16px; border-radius: 50%; background: rgba(255,255,255,.2); }
+/* Иконка: стеклянный круг со светлой кромкой сверху. Размытие здесь не нужно: за кругом плоский цвет */
+.ico { position: relative; display: grid; place-items: center; width: 96px; height: 96px; margin-bottom: 16px; border-radius: 50%; background: linear-gradient(160deg, rgba(255,255,255,.26), rgba(255,255,255,.1)); box-shadow: inset 0 1px 0 rgba(255,255,255,.55), inset 0 0 0 1px rgba(255,255,255,.2), 0 12px 28px rgba(0,0,0,.18); }
+.ico::after { content: ""; position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 2px rgba(255,255,255,.5); opacity: 0; pointer-events: none; }
 .ico svg { width: 48px; height: 48px; fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-.res.again .ico { background: rgba(255,255,255,.4); }
+.res.again .ico { background: linear-gradient(160deg, rgba(255,255,255,.55), rgba(255,255,255,.28)); }
 .res.again .ico svg { stroke: var(--ink); }
 .res.again :focus-visible { outline-color: var(--ink); }
-.res.sys .ico { background: rgba(255,59,48,.12); }
+.res.sys .ico { background: rgba(255,59,48,.12); box-shadow: none; }
+.res.sys .ico::after { display: none; }
 .res.sys .ico svg { stroke: var(--bad); }
-.res h1 { margin: 0; font-size: clamp(34px, 10.5vw, 46px); line-height: 1.08; font-weight: 700; letter-spacing: -.02em; text-wrap: balance; overflow-wrap: break-word; }
+.res h1 { margin: 0; max-width: 100%; font-size: clamp(34px, 10.5vw, 46px); line-height: 1.08; font-weight: 700; letter-spacing: -.02em; text-wrap: balance; overflow-wrap: break-word; }
 .res h1.long { font-size: clamp(26px, 8.2vw, 34px); }
 .res.sys h1 { font-size: 28px; line-height: 1.15; }
-.res .sub { margin: 0; font-size: 22px; line-height: 1.25; font-weight: 400; overflow-wrap: anywhere; }
-.res .state { margin: 8px 0 0; font-size: 28px; line-height: 1.15; font-weight: 600; font-variant-numeric: tabular-nums; }
-.res .note { margin: 8px 0 0; font-size: 20px; line-height: 1.3; font-weight: 400; max-width: 22em; }
-.res.sys .note { margin-top: 4px; font-size: 17px; line-height: 1.4; color: var(--muted); }
+.res .sub { max-width: 20em; margin: 0; font-size: 22px; line-height: 1.25; font-weight: 400; text-wrap: balance; overflow-wrap: break-word; }
+.res .state { margin: 8px 0 0; font-size: clamp(22px, 7.4vw, 28px); line-height: 1.15; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.res .note { margin: 8px 0 0; font-size: 20px; line-height: 1.3; font-weight: 400; max-width: 22em; text-wrap: balance; }
+.res.sys .note { margin-top: 4px; font-size: 17px; line-height: 1.4; color: var(--muted); text-wrap: pretty; }
 .res-actions { display: grid; gap: 12px; }
-.res .btn { background: #fff; color: var(--r-bg); }
-.res.again .btn { color: var(--ink); }
-.res .btn.line { background: transparent; color: #fff; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.85); }
-.res.sys .btn { background: var(--accent); color: #fff; }
-.res.sys .btn.line { background: var(--group); color: var(--ink); box-shadow: none; }
+/* Кнопки на цветном экране: светлое стекло. Главная почти белая, вторичная прозрачная с белой кромкой */
+.res .btn { background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,255,255,.88)); color: var(--r-ink); box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(0,0,0,.08), 0 10px 24px rgba(0,0,0,.18); }
+.res .btn.line { background: rgba(255,255,255,.14); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.45), inset 0 0 0 1px rgba(255,255,255,.42), 0 6px 18px rgba(0,0,0,.12); }
+.res.sys .btn { background: var(--accent); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 1px 2px rgba(0,113,227,.28), 0 6px 14px -4px rgba(0,113,227,.35); }
+.res.sys .btn.line { background: var(--group); color: var(--ink); box-shadow: inset 0 0 0 .5px rgba(0,0,0,.06); }
 @media (hover: hover) {
   .res .btn:not(:disabled):hover { background: #F5F5F7; }
-  .res .btn.line:not(:disabled):hover { background: rgba(255,255,255,.12); }
+  .res .btn.line:not(:disabled):hover { background: rgba(255,255,255,.24); }
   .res.sys .btn:not(:disabled):hover { background: var(--accent-hover); }
   .res.sys .btn.line:not(:disabled):hover { background: #EBEBED; }
 }
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .res .btn { background: #fff; }
+  .res .btn.line { background: rgba(255,255,255,.28); }
+}
 .timer { height: 4px; margin: 20px 0 0; border-radius: 2px; overflow: hidden; background: rgba(255,255,255,.28); }
 .timer i { display: block; height: 100%; border-radius: 2px; background: #fff; transform-origin: left; }
+/* Появление: всё за 400 мс (скриншот e2e снимается на 400-й). Только transform и opacity */
 @media (prefers-reduced-motion: no-preference) {
   .timer i { animation: drain 4s linear forwards; }
   .res-body, .res-actions { animation: pop 240ms var(--ease) backwards; }
   .res-actions { animation-delay: 60ms; }
+  .ico { animation: ico-in 340ms var(--spring) 20ms backwards; }
+  .ico::after { animation: ring 600ms var(--ease) 40ms backwards; }
 }
 @keyframes drain { to { transform: scaleX(0); } }
 @keyframes pop { from { opacity: 0; transform: scale(.96); } }
+@keyframes ico-in { from { opacity: 0; transform: scale(.72); } }
+@keyframes ring { from { opacity: .7; transform: scale(1); } to { opacity: 0; transform: scale(1.5); } }
 
-/* Поиск и гость: как настройки iOS. Группы на сером, поля от 56 px */
-.page { min-height: 100dvh; display: flex; flex-direction: column; gap: 20px; padding: max(8px, env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); }
+/* Поиск и гость: как настройки iOS. Группы на сером, поля от 56 px. За страницей мягкое свечение */
+.page { position: relative; isolation: isolate; min-height: 100dvh; display: flex; flex-direction: column; gap: 20px; padding: max(8px, env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); }
+.page::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: var(--glow); }
 .back { align-self: flex-start; display: flex; align-items: center; gap: 2px; min-height: 48px; margin-left: -8px; padding: 0 12px 0 4px; border: 0; background: none; color: var(--accent); font-size: 17px; font-weight: 600; }
 .back svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-.page h1 { margin: 0; font-size: 30px; line-height: 1.12; font-weight: 700; letter-spacing: -.02em; }
+.page h1 { margin: 0; font-size: 30px; line-height: 1.12; font-weight: 700; letter-spacing: -.02em; text-wrap: balance; }
 .field { display: grid; gap: 8px; }
 .field label { padding: 0 16px; font-size: 15px; color: var(--muted); }
 .field input { width: 100%; height: 56px; padding: 0 16px; border: 0; border-radius: 12px; background: var(--group); font-size: 18px; }
@@ -110,16 +149,17 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
 .group .field { grid-template-columns: 104px minmax(0, 1fr); align-items: center; gap: 0; min-height: 64px; padding: 8px 8px 8px 16px; }
 .group .field label { padding: 0; font-size: 17px; color: var(--ink); }
 .group .field input { height: 48px; padding: 0 14px; background: var(--bg); box-shadow: 0 0 0 1px var(--hair); font-size: 17px; }
-.hint { margin: -4px 0 0; padding: 0 16px; font-size: 15px; color: var(--muted); }
+.hint { margin: -4px 0 0; padding: 0 16px; font-size: 15px; color: var(--muted); text-wrap: pretty; }
 .list { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
-.row { display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 8px 8px 8px 18px; border: 1px solid var(--hair); border-radius: 20px; background: var(--bg); box-shadow: var(--shadow); }
-.who { flex: 1; min-width: 0; display: grid; gap: 2px; }
-.who b { font-size: 18px; line-height: 1.2; font-weight: 600; overflow-wrap: anywhere; }
-.who span { font-size: 15px; color: var(--muted); overflow-wrap: anywhere; }
-.row .btn { flex: none; min-height: 48px; padding: 0 20px; font-size: 17px; }
-.was { flex: none; max-width: 45%; padding-right: 10px; font-size: 15px; font-weight: 600; text-align: right; color: var(--ok); font-variant-numeric: tabular-nums; }
+/* Строка результата: имя слева, кнопка справа; длинное имя занимает строку целиком, кнопка уходит под него и не сжимает слова */
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 72px; padding: 8px 8px 8px 18px; border: 1px solid var(--hair); border-radius: 20px; background: var(--bg); box-shadow: var(--shadow); }
+.who { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
+.who b { font-size: 18px; line-height: 1.2; font-weight: 600; text-wrap: balance; overflow-wrap: break-word; }
+.who span { font-size: 15px; color: var(--muted); text-wrap: pretty; overflow-wrap: break-word; }
+.row .btn { flex: none; margin-left: auto; min-height: 48px; padding: 0 20px; font-size: 17px; }
+.was { flex: none; max-width: 45%; margin-left: auto; padding-right: 10px; font-size: 15px; font-weight: 600; text-align: right; color: var(--ok); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .empty { display: grid; gap: 14px; }
-.empty p { margin: 0; padding: 0 16px; font-size: 17px; color: var(--muted); }
+.empty p { margin: 0; padding: 0 16px; font-size: 17px; color: var(--muted); text-wrap: pretty; }
 </style>
 </head>
 <body>
