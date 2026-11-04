@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex">
+<title>Станция печати</title>
+<style>
+/* РАЗМЕР НАКЛЕЙКИ. Размер рулона пока неизвестен, по умолчанию 58 x 40 мм. Меняются только эти две строки:
+   @page берёт их отсюда скриптом (CSS не принимает var() в правиле @page), вёрстка наклейки тоже. */
+:root { --label-w: 58mm; --label-h: 40mm; }
+
+/* Станция печати на ноутбуке у входа. Токены из прототипа входа и печати. */
+:root {
+  --bg: #f4f5f2; --surface: #ffffff; --ink: #16181d; --muted: #5d636b; --line: #dcdfda;
+  --focus: #1f5fa8; --warn: #9a5b00; --warn-soft: #fdf1dc;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #111316; --surface: #1a1d21; --ink: #eceeea; --muted: #a3a9ae; --line: #2c3035; --focus: #7fb0ec; --warn: #f2b84b; --warn-soft: #2a2213; }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font: 400 16px/1.45 var(--font); }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: 24px 32px 40px; display: grid; gap: 20px; }
+.rule { margin: 0; padding: 12px 16px; border-radius: 12px; background: var(--warn-soft); color: var(--warn); font-weight: 600; }
+
+.top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; }
+.status { display: flex; align-items: center; gap: 18px; min-height: 110px; padding: 20px 28px; border-radius: 18px; color: #fff; background: #1d7a4b; }
+.status.bad { background: #c8102e; }
+.status svg { flex: none; width: 48px; height: 48px; fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.status b { display: block; font-size: 32px; line-height: 1.15; font-weight: 800; }
+.status span { display: block; margin-top: 4px; font-size: 20px; line-height: 1.3; font-weight: 500; }
+.queue { display: flex; align-items: center; gap: 12px; align-self: stretch; margin: 0; padding: 0 28px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); font-size: 22px; font-weight: 600; white-space: nowrap; }
+.queue b { font-size: 52px; line-height: 1; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+.head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+h2 { margin: 0; font-size: 24px; line-height: 1.2; font-weight: 800; }
+.note { margin: -12px 0 0; color: var(--muted); }
+.btn { min-height: 48px; padding: 0 20px; border-radius: 12px; border: 2px solid var(--ink); background: var(--ink); color: var(--bg); font-size: 17px; font-weight: 700; }
+.btn.line { background: transparent; color: var(--ink); border-color: var(--line); }
+.btn:disabled { opacity: .45; cursor: default; }
+@media (hover: hover) { .btn:not(:disabled):hover { opacity: .88; } }
+
+.done { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.card { display: flex; align-items: center; gap: 12px; min-height: 68px; padding: 10px 10px 10px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.who { flex: 1; min-width: 0; display: grid; }
+.who b { font-size: 18px; line-height: 1.25; font-weight: 700; overflow-wrap: anywhere; }
+.who span { font-size: 15px; color: var(--muted); overflow-wrap: anywhere; }
+.card .btn { flex: none; min-height: 44px; padding: 0 16px; font-size: 16px; }
+.empty { margin: 0; color: var(--muted); font-size: 17px; }
+
+/* Наклейка: только чёрный на белом. Вне печати прячется за краем экрана, но остаётся в вёрстке, чтобы мерить текст.
+   Вид по образцу Дианы (private/images/1623-…): как написано ручкой — тонко, влево, лесенкой, с лёгким наклоном. */
+#sticker { position: fixed; left: -10000px; top: 0; width: var(--label-w); height: var(--label-h); padding: 2.2mm 3mm; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; overflow: hidden; background: #fff; color: #000; text-align: left; font-family: "Caveat", "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive; font-weight: 700; line-height: 1.02; }
+#sticker .fit { display: block; width: max-content; white-space: nowrap; transform: rotate(-3deg); transform-origin: left center; }
+#st-last { margin-left: 4mm; }
+/* Имя и фамилия жирно, должность и компания тонко: главное читается первым. */
+#st-pos, #st-comp { margin-left: 1.5mm; font-weight: 400; }
+#st-pos { margin-top: 1mm; }
+#sticker .fit:empty { display: none; }
+@media print {
+  html, body { margin: 0; padding: 0; background: #fff; }
+  .screen { display: none !important; }
+  /* На 0,5 мм ниже страницы: иначе округление добавляет вторую пустую наклейку. */
+  #sticker { position: static; height: calc(var(--label-h) - 0.5mm); }
+}
+</style>
+</head>
+<body>
+<main class="wrap screen">
+  <p class="rule">Держите эту вкладку открытой весь форум. Вторую станцию не открывайте: наклейки напечатаются дважды</p>
+
+  <section class="top">
+    <div class="status" id="status" role="status"><svg viewBox="0 0 24 24" id="st-ico" aria-hidden="true"></svg><div><b id="st-title"></b><span id="st-sub" hidden></span></div></div>
+    <p class="queue" id="queue">В очереди: <b id="q">0</b></p>
+  </section>
+
+  <section style="display:grid;gap:16px">
+    <div class="head">
+      <h2>Последние напечатанные</h2>
+      <button type="button" class="btn line" id="b-test">Пробная наклейка</button>
+    </div>
+    <p class="note">Ещё раз — напечатать заново с данными из таблицы</p>
+    <ul class="done" id="done"></ul>
+    <p class="empty" id="done-empty">Пока ничего не напечатано</p>
+  </section>
+</main>
+
+<div id="sticker" aria-hidden="true"><span class="fit" id="st-first"></span><span class="fit" id="st-last"></span><span class="fit" id="st-pos"></span><span class="fit" id="st-comp"></span></div>
+
+<script src="config.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var API = window.FORUM_API || '';
+  // Секрет сотрудников живёт только в хеше ссылки: на сервер не уходит, никуда не пишется.
+  var K = new URLSearchParams(location.hash.slice(1)).get('k') || '';
+  var POLL_MS = 1500;
+  var SAMPLE = { first: 'Айгерим', last: 'Нурлан', position: 'Product Designer', company: 'Higgs' };
+
+  // Размер страницы печати берём из тех же констант, что и вёрстку наклейки.
+  var cs = getComputedStyle(document.documentElement);
+  var pageRule = document.createElement('style');
+  pageRule.textContent = '@page { size: ' + cs.getPropertyValue('--label-w').trim() + ' ' + cs.getPropertyValue('--label-h').trim() + '; margin: 0 }';
+  document.head.append(pageRule);
+
+  var CHECK = '<path d="M5 12.5l4.5 4.5L19 7.5"/>';
+  var ALERT = '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/>';
+  var STATUS = {
+    ok: { bad: false, ico: CHECK, title: 'Станция печати работает' },
+    net: { bad: true, ico: ALERT, title: 'Нет связи с таблицей', sub: 'Наклейки напечатаются, когда связь вернётся' },
+    stale: { bad: true, ico: ALERT, title: 'Ссылка устарела', sub: 'Попросите новую ссылку у организатора' },
+    link: { bad: true, ico: ALERT, title: 'Ссылка неполная', sub: 'Откройте ссылку для сотрудников целиком' },
+    addr: { bad: true, ico: ALERT, title: 'Не задан адрес таблицы', sub: 'Впишите адрес в config.js и обновите страницу' }
+  };
+  var shown = '';
+  function setStatus(kind) {
+    if (shown === kind) return;
+    shown = kind;
+    if (kind === 'net') $('q').textContent = '?';
+    var s = STATUS[kind];
+    $('status').className = 'status' + (s.bad ? ' bad' : '');
+    $('st-ico').innerHTML = s.ico;
+    $('st-title').textContent = s.title;
+    $('st-sub').textContent = s.sub || '';
+    $('st-sub').hidden = !s.sub;
+  }
+
+  function h(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  async function api(body) {
+    var ctl = new AbortController();
+    var t = setTimeout(function () { ctl.abort(); }, 10000);
+    try {
+      // Без Content-Type: тело уходит как text/plain и обходится без preflight, иначе Apps Script не примет.
+      var res = await fetch(API, { method: 'POST', body: JSON.stringify(Object.assign({ k: K }, body)), signal: ctl.signal });
+      return await res.json();
+    } finally { clearTimeout(t); }
+  }
+
+  // ---- Наклейка ----
+  // Рукописный Caveat подключается скриптом, чтобы медленный Google Fonts не задерживал страницу.
+  var fontCss = new Promise(function (resolve) {
+    var l = document.createElement('link');
+    l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&display=swap';
+    l.onload = l.onerror = resolve;
+    document.head.append(l);
+    setTimeout(resolve, 5000);
+  });
+
+  // Имя и фамилия по одному размеру, должность и компания по своему. Каждая строка целиком по ширине: ужимаем, не режем.
+  function fit(ids, max, avail) {
+    var els = ids.map($).filter(function (e) { return e.textContent; });
+    if (!els.length) return;
+    els.forEach(function (e) { e.style.fontSize = max + 'px'; });
+    var w = Math.max.apply(null, els.map(function (e) { return e.offsetWidth; }));
+    var size = w > avail ? max * avail / w : max;
+    els.forEach(function (e) { e.style.fontSize = Math.floor(size * 10) / 10 + 'px'; });
+  }
+
+  async function doPrint(p) {
+    $('st-first').textContent = p.first || '';
+    // Запятая после фамилии, как на образце, если ниже есть должность или компания.
+    $('st-last').textContent = (p.last || '') + (p.last && (p.position || p.company) ? ',' : '');
+    $('st-pos').textContent = p.position || '';
+    $('st-comp').textContent = p.company || '';
+    var text = [p.first, p.last, p.position, p.company].filter(Boolean).join(' ');
+    await fontCss;
+    await Promise.race([Promise.all([document.fonts.load('700 40px Caveat', text), document.fonts.load('400 40px Caveat', text)]), sleep(4000)]);
+    await Promise.race([document.fonts.ready, sleep(4000)]);
+    var box = $('sticker'), st = getComputedStyle(box);
+    // Запас под отступ лесенки (4 мм) и наклон строк.
+    var avail = (box.clientWidth - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight)) * 0.80;
+    fit(['st-first', 'st-last'], box.clientHeight * 0.30, avail);
+    fit(['st-pos'], box.clientHeight * 0.115, avail);
+    fit(['st-comp'], box.clientHeight * 0.115, avail);
+    window.print();
+  }
+  // Печать строго по одной: следующая наклейка не затирает текст предыдущей.
+  var chain = Promise.resolve();
+  function printSticker(p) {
+    chain = chain.catch(function () {}).then(function () { return doPrint(p); });
+    return chain;
+  }
+
+  // ---- Очередь ----
+  var unacked = new Set(); // напечатано здесь, но «printed» в таблицу ещё не дошло: заново не печатаем, повторяем только его
+  var stopped = false;
+  var lastDone = '';
+
+  function stop(kind) { stopped = true; setStatus(kind); }
+
+  async function ack(id) {
+    try {
+      var r = await api({ a: 'printed', id: id });
+      if (r.ok || r.error === 'not_found') unacked.delete(id);
+      else if (r.error === 'secret') stop('stale');
+    } catch (e) { /* связи нет: повторим на следующем опросе */ }
+  }
+
+  function renderDone(done) {
+    var sig = JSON.stringify(done);
+    if (sig === lastDone) return;
+    lastDone = sig;
+    var ul = $('done');
+    ul.replaceChildren.apply(ul, done.map(function (p) {
+      var li = h('li', 'card');
+      var who = h('div', 'who');
+      who.append(h('b', '', [p.first, p.last].filter(Boolean).join(' ')));
+      var sub = [p.position, p.company].filter(Boolean).join(', ');
+      if (sub) who.append(h('span', '', sub));
+      var b = h('button', 'btn line', 'Ещё раз');
+      b.type = 'button';
+      b.setAttribute('aria-label', 'Ещё раз: ' + [p.first, p.last].filter(Boolean).join(' '));
+      b.addEventListener('click', async function () {
+        b.disabled = true;
+        try {
+          var r = await api({ a: 'reprint', id: p.id });
+          if (r.error === 'secret') return stop('stale');
+          if (!r.ok) throw new Error(r.error);
+        } catch (e) { b.disabled = false; setStatus('net'); }
+      });
+      li.append(who, b);
+      return li;
+    }));
+    $('done-empty').hidden = done.length > 0;
+  }
+
+  async function poll() {
+    var t0 = Date.now();
+    try {
+      var res = await api({ a: 'queue' });
+      if (!res.ok) {
+        if (res.error === 'secret') return stop('stale');
+        throw new Error(res.error);
+      }
+      setStatus('ok');
+      renderDone(res.done);
+      var skip = new Set(unacked);
+      var fresh = res.wait.filter(function (p) { return !skip.has(p.id); });
+      $('q').textContent = fresh.length;
+      for (var id of skip) await ack(id);
+      for (var p of fresh) {
+        try { await printSticker(p); } catch (e) { continue; }
+        unacked.add(p.id);
+        $('q').textContent = Math.max(0, +$('q').textContent - 1);
+        await ack(p.id);
+      }
+    } catch (e) { setStatus('net'); }
+    if (!stopped) setTimeout(poll, Math.max(0, POLL_MS - (Date.now() - t0)));
+  }
+
+  // ---- Запуск ----
+  $('b-test').addEventListener('click', function () { printSticker(SAMPLE); });
+
+  // Ноутбук не должен уснуть: тогда вкладка перестанет опрашивать таблицу.
+  async function keepAwake() {
+    try { if (navigator.wakeLock) await navigator.wakeLock.request('screen'); } catch (e) { /* не критично */ }
+  }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) keepAwake(); });
+
+  if (!K) stop('link');
+  else if (!API) stop('addr');
+  else { keepAwake(); poll(); }
+})();
+</script>
+</body>
+</html>

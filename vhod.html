@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex">
+<title>Вход на форум</title>
+<style>
+/* Телефон сотрудника на входе: камера, результат скана, поиск, гость. Токены из прототипа входа и печати. */
+:root {
+  --bg: #f4f5f2; --surface: #ffffff; --sunk: #eef0ec; --ink: #16181d; --muted: #5d636b; --line: #dcdfda;
+  --focus: #1f5fa8; --ok: #1d7a4b;
+  /* Полноэкранные результаты одинаковы в светлой и тёмной теме: белый текст на них держит контраст не ниже 5:1 */
+  --res-in: #1d7a4b; --res-again: #9a5b00; --res-unknown: #c8102e; --res-sys: #23262b;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #111316; --surface: #1a1d21; --sunk: #15181b; --ink: #eceeea; --muted: #a3a9ae; --line: #2c3035; --focus: #7fb0ec; --ok: #5ccf94; }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); font: 400 16px/1.4 var(--font); -webkit-text-size-adjust: 100%; }
+button, input { font: inherit; color: inherit; }
+button { touch-action: manipulation; cursor: pointer; }
+.sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+/* Кнопки: цель не меньше 56 px, между кнопками 12 px */
+.btn { display: flex; align-items: center; justify-content: center; min-height: 56px; padding: 0 20px; border-radius: 14px; border: 2px solid transparent; font-size: 18px; font-weight: 700; line-height: 1.15; text-align: center; transition: transform .12s cubic-bezier(.23,1,.32,1); }
+.btn:active { transform: scale(.98); }
+.btn:disabled { opacity: .45; cursor: default; transform: none; }
+.btn.ink { background: var(--ink); color: var(--bg); }
+.btn.line { background: transparent; border-color: var(--line); color: var(--ink); }
+
+/* Камера */
+.cam { position: fixed; inset: 0; overflow: hidden; background: #0d0e10; color: #fff; }
+.cam video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.aim { position: absolute; inset: 0 0 calc(var(--bar-h) + 8px) 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; pointer-events: none; }
+.frame { width: min(68vw, 320px); aspect-ratio: 1; border: 3px solid rgba(255,255,255,.92); border-radius: 22px; box-shadow: 0 0 0 100vmax rgba(0,0,0,.38); transition: border-color .15s; }
+.cam.busy .frame { border-color: #f2b84b; }
+.cap { margin: 0; padding: 8px 16px; border-radius: 999px; background: rgba(0,0,0,.62); font-size: 17px; font-weight: 600; text-align: center; }
+.bar { position: absolute; left: 0; right: 0; bottom: 0; display: grid; gap: 12px; padding: 40px 16px calc(16px + env(safe-area-inset-bottom)); background: linear-gradient(to bottom, transparent, rgba(0,0,0,.78)); }
+.bar .btn { background: #fff; color: #16181d; }
+.bar .btn.line { background: rgba(0,0,0,.35); border-color: rgba(255,255,255,.85); color: #fff; }
+.cam { --bar-h: 150px; }
+.cam.single { --bar-h: 84px; }
+
+/* Результат: во весь экран, цвет + иконка + заголовок */
+.res { position: fixed; inset: 0; display: flex; flex-direction: column; overflow: auto; padding: max(24px, env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom)); color: #fff; }
+.res.in { background: var(--res-in); } .res.again { background: var(--res-again); }
+.res.unknown { background: var(--res-unknown); } .res.sys { background: var(--res-sys); }
+.res-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 16px 0; }
+.ico { display: grid; place-items: center; width: 76px; height: 76px; margin-bottom: 8px; border-radius: 50%; background: rgba(255,255,255,.2); }
+.ico svg { width: 42px; height: 42px; fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.res h1 { margin: 0; font-size: clamp(34px, 10.5vw, 46px); line-height: 1.08; font-weight: 800; letter-spacing: -.01em; text-wrap: balance; overflow-wrap: break-word; }
+.res h1.long { font-size: clamp(26px, 8.2vw, 34px); }
+.res .sub { margin: 0; font-size: 22px; line-height: 1.25; font-weight: 500; overflow-wrap: anywhere; }
+.res .state { margin: 6px 0 0; font-size: 28px; line-height: 1.15; font-weight: 800; }
+.res .note { margin: 6px 0 0; font-size: 20px; line-height: 1.3; font-weight: 600; max-width: 22em; }
+.res-actions { display: grid; gap: 12px; }
+.res .btn { background: #fff; color: #16181d; }
+.res.in .btn { color: var(--res-in); } .res.again .btn { color: var(--res-again); } .res.unknown .btn { color: var(--res-unknown); }
+.res .btn.line { background: transparent; border-color: rgba(255,255,255,.85); color: #fff; }
+.res :focus-visible { outline-color: #fff; }
+.timer { height: 6px; margin: 16px -20px -20px; background: rgba(255,255,255,.18); }
+.timer i { display: block; height: 100%; background: rgba(255,255,255,.85); transform-origin: left; }
+@media (prefers-reduced-motion: no-preference) { .timer i { animation: drain 4s linear forwards; } }
+@keyframes drain { to { transform: scaleX(0); } }
+
+/* Поиск и гость */
+.page { min-height: 100dvh; display: flex; flex-direction: column; gap: 16px; padding: max(8px, env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); }
+.back { align-self: flex-start; display: flex; align-items: center; gap: 4px; min-height: 48px; margin-left: -8px; padding: 0 12px 0 4px; border: 0; background: none; font-size: 17px; font-weight: 600; }
+.back svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.page h1 { margin: 0; font-size: 26px; line-height: 1.15; font-weight: 800; }
+.field { display: grid; gap: 6px; }
+.field label { font-size: 15px; font-weight: 600; color: var(--muted); }
+.field input { width: 100%; height: 56px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-size: 18px; }
+.form { display: grid; gap: 16px; }
+.hint { margin: 0; font-size: 15px; color: var(--muted); }
+.list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.row { display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 12px 12px 12px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.who { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.who b { font-size: 18px; line-height: 1.2; font-weight: 700; overflow-wrap: anywhere; }
+.who span { font-size: 15px; color: var(--muted); overflow-wrap: anywhere; }
+.row .btn { flex: none; min-height: 48px; padding: 0 18px; font-size: 16px; }
+.was { flex: none; max-width: 45%; font-size: 15px; font-weight: 700; text-align: right; color: var(--ok); font-variant-numeric: tabular-nums; }
+.empty { display: grid; gap: 14px; }
+.empty p { margin: 0; font-size: 17px; }
+@media (hover: hover) { .btn:not(:disabled):hover { opacity: .9; } }
+</style>
+</head>
+<body>
+<div id="live" class="sr" role="status" aria-live="polite"></div>
+
+<main>
+  <section id="s-camera" class="cam" aria-label="Камера" hidden>
+    <video id="video" playsinline muted autoplay aria-hidden="true"></video>
+    <div class="aim" aria-hidden="true"><div class="frame"></div><p class="cap" id="cap">Наведите камеру на QR участника</p></div>
+    <div class="bar">
+      <button type="button" class="btn" id="b-find">Найти по фамилии</button>
+      <button type="button" class="btn line" id="b-guest">Гость без приглашения</button>
+    </div>
+  </section>
+
+  <section id="s-result" class="res" hidden>
+    <div class="res-body">
+      <div class="ico" id="r-ico" aria-hidden="true"></div>
+      <h1 id="r-title"></h1>
+      <div id="r-lines" style="display:contents"></div>
+    </div>
+    <div class="res-actions" id="r-actions"></div>
+    <div class="timer" id="r-timer" aria-hidden="true" hidden></div>
+  </section>
+
+  <section id="s-search" class="page" hidden>
+    <button type="button" class="back" id="se-back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Назад к камере</button>
+    <h1>Найти по фамилии</h1>
+    <form id="se-form" class="field" autocomplete="off">
+      <label for="se-q">Фамилия или 4 цифры телефона</label>
+      <input id="se-q" type="text" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false">
+    </form>
+    <ul class="list" id="se-list"></ul>
+    <div class="empty" id="se-empty" hidden>
+      <p role="status" id="se-empty-t"></p>
+      <button type="button" class="btn line" id="se-guest">Гость без приглашения</button>
+    </div>
+  </section>
+
+  <section id="s-guest" class="page" hidden>
+    <button type="button" class="back" id="g-back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Назад к камере</button>
+    <h1>Гость без приглашения</h1>
+    <form id="g-form" class="form" autocomplete="off">
+      <div class="field"><label for="g-first">Имя</label><input id="g-first" type="text" autocomplete="off" autocapitalize="words"></div>
+      <div class="field"><label for="g-last">Фамилия</label><input id="g-last" type="text" autocomplete="off" autocapitalize="words"></div>
+      <div class="field"><label for="g-pos">Должность</label><input id="g-pos" type="text" autocomplete="off" autocapitalize="sentences"></div>
+      <div class="field"><label for="g-comp">Компания</label><input id="g-comp" type="text" autocomplete="off" autocapitalize="words"></div>
+      <p class="hint" id="g-hint">Нужно имя или фамилия</p>
+      <button type="submit" class="btn ink" id="g-ok" aria-describedby="g-hint" disabled>Отметить и напечатать</button>
+    </form>
+  </section>
+</main>
+
+<script src="config.js"></script>
+<script src="vendor/jsQR.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var API = window.FORUM_API || '';
+  // Гость включён, пока в config.js явно не стоит false: локальный сервер отдаёт config.js без этой настройки.
+  var GUESTS = window.FORUM_GUESTS !== false;
+  // Секрет сотрудников живёт только в хеше ссылки: на сервер не уходит, никуда не пишется.
+  var K = new URLSearchParams(location.hash.slice(1)).get('k') || '';
+  var AUTO_MS = 4000;
+
+  var stream = null, camDenied = false, dead = false;
+  var scanning = false, scanTimer = 0, autoTimer = 0, pending = false;
+  // Показанный код, который ещё в кадре: его повторно не отправляем (см. toCamera).
+  var blocked = '', clearFrames = 0;
+  var cv = document.createElement('canvas'), cx = cv.getContext('2d', { willReadFrequently: true });
+
+  var ICONS = {
+    in: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    again: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.5l3.5 2"/></svg>',
+    unknown: '<svg viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg>',
+    sys: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/></svg>'
+  };
+  var VIBRO = { in: 90, again: [70, 70, 70], unknown: 250, sys: 250 };
+
+  function h(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function fullName(p) { return [p.first, p.last].filter(Boolean).join(' '); }
+
+  function live(text) {
+    var el = $('live');
+    el.textContent = '';
+    setTimeout(function () { el.textContent = text; }, 40);
+  }
+
+  // ---- Экраны ----
+  var SCREENS = { camera: 's-camera', result: 's-result', search: 's-search', guest: 's-guest' };
+  var current = '';
+  function show(name) {
+    current = name;
+    clearTimeout(autoTimer);
+    Object.keys(SCREENS).forEach(function (k) { $(SCREENS[k]).hidden = k !== name; });
+  }
+
+  // Один экран результата для всех исходов: in / again / unknown / sys.
+  function showRes(kind, spec) {
+    $('s-result').className = 'res ' + kind;
+    $('r-ico').innerHTML = ICONS[kind];
+    $('r-title').textContent = spec.title;
+    // Длинные имена мельче, чтобы слово не рвалось посередине.
+    $('r-title').classList.toggle('long', (kind === 'in' || kind === 'again') && spec.title.length > 20);
+    var lines = $('r-lines');
+    lines.replaceChildren.apply(lines, (spec.lines || []).map(function (l) { return h('p', l[0], l[1]); }));
+    var act = $('r-actions');
+    act.replaceChildren.apply(act, spec.actions.map(function (a) {
+      var b = h('button', 'btn' + (a.line ? ' line' : ''), a.label);
+      b.type = 'button';
+      b.addEventListener('click', a.on);
+      return b;
+    }));
+    var timer = $('r-timer');
+    timer.hidden = !spec.auto;
+    timer.replaceChildren.apply(timer, spec.auto ? [h('i')] : []);
+    show('result');
+    live([spec.title].concat((spec.lines || []).map(function (l) { return l[1]; })).join('. '));
+    if (navigator.vibrate) navigator.vibrate(VIBRO[kind]);
+    if (spec.auto) autoTimer = setTimeout(spec.auto, AUTO_MS);
+  }
+
+  function showNet(retry, back, busy) {
+    showRes('sys', { title: busy ? 'Таблица занята' : 'Нет связи с таблицей', lines: [['note', busy ? 'Отметка не сохранена. Нажмите «Повторить» через пару секунд' : 'Отметка не сохранена']],
+      actions: [{ label: 'Повторить', on: retry }, { label: 'Назад', line: true, on: back }] });
+  }
+  function fatal(title, text) {
+    showRes('sys', { title: title, lines: [['note', text]], actions: [] });
+  }
+  function stale() {
+    dead = true;
+    stopScan(); stopCamera();
+    fatal('Ссылка устарела', 'Попросите новую ссылку у организатора');
+  }
+
+  // ---- Запросы к таблице ----
+  async function api(body) {
+    var ctl = new AbortController();
+    var t = setTimeout(function () { ctl.abort(); }, 20000);
+    try {
+      // Без Content-Type: тело уходит как text/plain и обходится без preflight, иначе Apps Script не примет.
+      var res = await fetch(API, { method: 'POST', body: JSON.stringify(Object.assign({ k: K }, body)), signal: ctl.signal });
+      return await res.json();
+    } finally { clearTimeout(t); }
+  }
+
+  // Запрос с экраном ошибки: «Повторить» шлёт тот же запрос ещё раз, «Назад» ведёт на back.
+  async function run(body, onOk, back) {
+    if (pending) return;
+    pending = true;
+    $('s-camera').classList.add('busy');
+    $('cap').textContent = 'Проверяю…';
+    var res = null;
+    try { res = await api(body); } catch (e) { res = null; }
+    pending = false;
+    $('s-camera').classList.remove('busy');
+    $('cap').textContent = 'Наведите камеру на QR участника';
+    if (res && res.ok) return onOk(res);
+    if (res && res.error === 'secret') return stale();
+    showNet(function () { run(body, onOk, back); }, back, res && res.error === 'busy');
+  }
+
+  // ---- Камера ----
+  async function startCamera() {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('no media');
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } });
+      $('video').srcObject = stream;
+      await $('video').play();
+      camDenied = false;
+    } catch (e) { stream = null; camDenied = true; }
+    return !camDenied;
+  }
+  function stopCamera() {
+    if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
+    stream = null;
+  }
+  function stopScan() { scanning = false; clearTimeout(scanTimer); }
+
+  function showNoCam() {
+    showRes('sys', { title: 'Нет доступа к камере',
+      lines: [['note', 'Откройте ссылку в Safari или Chrome, а не внутри WhatsApp или Telegram. Разрешите камеру для этого сайта и обновите страницу']],
+      actions: [{ label: 'Найти по фамилии', on: openSearch }] });
+  }
+
+  // blockCode: код, который только что показали. Пока он в кадре, повторно его не отправляем:
+  // иначе «Следующий» при поднятом QR сразу даст жёлтый экран «Уже прошёл».
+  function toCamera(blockCode) {
+    if (dead) return;
+    blocked = blockCode || '';
+    clearFrames = 0;
+    if (camDenied) return showNoCam();
+    show('camera');
+    scanning = true;
+    clearTimeout(scanTimer);
+    tick();
+  }
+
+  // Кадры в canvas, jsQR около 9 раз в секунду.
+  function tick() {
+    if (!scanning) return;
+    var v = $('video');
+    if (v.readyState >= 2 && v.videoWidth) {
+      var w = Math.min(800, v.videoWidth), hh = Math.round(v.videoHeight * w / v.videoWidth);
+      cv.width = w; cv.height = hh;
+      cx.drawImage(v, 0, 0, w, hh);
+      var q = window.jsQR(cx.getImageData(0, 0, w, hh).data, w, hh, { inversionAttempts: 'attemptBoth' });
+      var code = q && q.data ? q.data : '';
+      if (code && code !== blocked) return found(code);
+      if (blocked) {
+        if (code === blocked) clearFrames = 0; // тот же код всё ещё в кадре
+        else if (++clearFrames >= 9) blocked = ''; // кадр пуст около секунды
+      }
+    }
+    scanTimer = setTimeout(tick, 110);
+  }
+
+  function found(code) {
+    stopScan();
+    blocked = '';
+    run({ a: 'scan', t: code }, function (res) { showScan(res, code); }, function () { toCamera(code); });
+  }
+
+  // ---- Результаты ----
+  function showScan(res, code) {
+    if (res.r === 'in') return showIn(res.p, code);
+    if (res.r === 'again') return showAgain(res, code);
+    showUnknown(code);
+  }
+  // code: считанный QR; для отметки из поиска и для гостя кода нет, блокировать нечего.
+  function showIn(p, code) {
+    var next = function () { toCamera(code); };
+    var lines = [['sub', p.position], ['sub', p.company]].filter(function (l) { return l[1]; });
+    lines.push(['note', 'Проходите. Наклейка печатается']);
+    showRes('in', { title: fullName(p), lines: lines, actions: [{ label: 'Следующий', on: next }], auto: next });
+  }
+  function showAgain(res, code) {
+    showRes('again', { title: fullName(res.p),
+      lines: [['state', 'Уже прошёл' + (res.at ? ' в ' + res.at : '')], ['note', 'Вторую наклейку не печатаем']],
+      actions: [{ label: 'Следующий', on: function () { toCamera(code); } }] });
+  }
+  function showUnknown(code) {
+    var actions = [{ label: 'Найти по фамилии', on: openSearch }];
+    if (GUESTS) actions.push({ label: 'Гость без приглашения', line: true, on: openGuest });
+    actions.push({ label: 'Сканировать снова', line: true, on: function () { toCamera(code); } });
+    showRes('unknown', { title: 'Код не найден', lines: [['sub', 'Этого QR нет в списке']], actions: actions });
+  }
+  function showMarked(res) { return res.r === 'again' ? showAgain(res) : showIn(res.p); }
+
+  // ---- Поиск ----
+  var seq = 0, deb = 0;
+  function openSearch() {
+    stopScan();
+    show('search');
+    $('se-q').focus();
+  }
+  function renderList(list) {
+    var ul = $('se-list');
+    ul.replaceChildren.apply(ul, list.map(function (it) {
+      var li = h('li', 'row');
+      var who = h('div', 'who');
+      who.append(h('b', '', fullName(it)));
+      if (it.company) who.append(h('span', '', it.company));
+      li.append(who);
+      if (it.in) {
+        li.append(h('span', 'was', 'Прошёл' + (it.at ? ' в ' + it.at : '')));
+      } else {
+        var b = h('button', 'btn ink', 'Отметить');
+        b.type = 'button';
+        b.setAttribute('aria-label', 'Отметить: ' + fullName(it));
+        b.addEventListener('click', function () { run({ a: 'mark', id: it.id }, showMarked, backToSearch); });
+        li.append(b);
+      }
+      return li;
+    }));
+    $('se-empty').hidden = list.length > 0 || $('se-q').value.trim().length < 2;
+    $('se-empty-t').textContent = list.length ? '' : 'Никого не нашли. Проверьте написание или добавьте как гостя';
+    $('se-guest').hidden = !GUESTS;
+  }
+  function backToSearch() { show('search'); $('se-q').focus(); }
+  async function doSearch() {
+    var q = $('se-q').value.trim(), my = ++seq;
+    if (q.length < 2) { renderList([]); return; }
+    var res = null;
+    try { res = await api({ a: 'find', q: q }); } catch (e) { res = null; }
+    if (my !== seq) return;
+    if (res && res.ok) return renderList(res.list);
+    if (res && res.error === 'secret') return stale();
+    showNet(doSearch, backToSearch);
+  }
+
+  // ---- Гость ----
+  var GF = ['g-first', 'g-last', 'g-pos', 'g-comp'];
+  function guestValid() { return !!($('g-first').value.trim() || $('g-last').value.trim()); }
+  function syncGuest() { var ok = guestValid(); $('g-ok').disabled = !ok; $('g-hint').hidden = ok; }
+  function openGuest() {
+    stopScan();
+    show('guest');
+    $('g-first').focus();
+  }
+  function backToGuest() { show('guest'); }
+
+  // ---- Запуск ----
+  async function init() {
+    if (!K) return fatal('Ссылка неполная', 'Откройте ссылку для сотрудников целиком');
+    if (!API) return fatal('Не задан адрес таблицы', 'Впишите адрес в config.js и обновите страницу');
+    if (!GUESTS) { $('b-guest').hidden = true; $('s-camera').classList.add('single'); }
+    show('camera');
+    // Устаревшую ссылку видно сразу, а не на первом госте у входа. Сбой сети здесь не мешает: камера работает.
+    api({ a: 'find', q: '' }).then(function (r) { if (r && r.error === 'secret') stale(); }).catch(function () {});
+    var ok = await startCamera();
+    if (dead) { stopCamera(); return; }
+    // Пока камера запрашивалась, сотрудник мог уйти в поиск или к гостю: его экран не трогаем.
+    if (current === 'camera') { if (ok) toCamera(); else showNoCam(); }
+  }
+
+  $('b-find').addEventListener('click', openSearch);
+  $('b-guest').addEventListener('click', openGuest);
+  $('se-guest').addEventListener('click', openGuest);
+  $('se-back').addEventListener('click', function () { toCamera(); });
+  $('g-back').addEventListener('click', function () { toCamera(); });
+  $('se-q').addEventListener('input', function () { clearTimeout(deb); deb = setTimeout(doSearch, 300); });
+  $('se-form').addEventListener('submit', function (e) { e.preventDefault(); clearTimeout(deb); doSearch(); });
+  GF.forEach(function (id) { $(id).addEventListener('input', syncGuest); });
+  $('g-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!guestValid()) return;
+    var body = { a: 'guest', first: $('g-first').value.trim(), last: $('g-last').value.trim(),
+      position: $('g-pos').value.trim(), company: $('g-comp').value.trim() };
+    run(body, function (res) {
+      GF.forEach(function (id) { $(id).value = ''; });
+      syncGuest();
+      showIn(res.p);
+    }, backToGuest);
+  });
+  // Экран не гаснет между гостями: иначе разблокировка и перезапуск камеры на входе.
+  async function keepAwake() {
+    try { if (navigator.wakeLock) await navigator.wakeLock.request('screen'); } catch (e) { /* не критично */ }
+  }
+  keepAwake();
+  // Экран телефона гас: камера могла остановиться, возвращаем её.
+  document.addEventListener('visibilitychange', async function () {
+    if (!document.hidden) keepAwake();
+    if (document.hidden || dead || !stream) return;
+    if (stream.getVideoTracks().every(function (t) { return t.readyState === 'ended'; })) { stream = null; await startCamera(); }
+    else $('video').play().catch(function () {});
+  });
+
+  syncGuest();
+  init();
+})();
+</script>
+</body>
+</html>
