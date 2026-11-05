@@ -167,7 +167,8 @@ h2 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spac
     stale: { bad: true, ico: ALERT, title: 'Ссылка устарела', sub: 'Попросите новую ссылку у организатора' },
     link: { bad: true, ico: ALERT, title: 'Ссылка неполная', sub: 'Откройте ссылку для сотрудников целиком' },
     addr: { bad: true, ico: ALERT, title: 'Не задан адрес таблицы', sub: 'Впишите адрес в config.js и обновите страницу' },
-    phone: { bad: true, ico: ALERT, title: 'Это страница для ноутбука с принтером', sub: 'На телефоне откройте ссылку «Телефоны на входе». Наклейки печатает ноутбук сам' }
+    phone: { bad: true, ico: ALERT, title: 'Это страница для ноутбука с принтером', sub: 'На телефоне откройте ссылку «Телефоны на входе». Наклейки печатает ноутбук сам' },
+    dup: { bad: true, ico: ALERT, title: 'Станция уже открыта в другом окне', sub: 'Закройте эту вкладку' }
   };
   var shown = '';
   function setStatus(kind) {
@@ -317,18 +318,50 @@ h2 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spac
   }
   document.addEventListener('visibilitychange', function () { if (!document.hidden) keepAwake(); });
 
-  // Телефон или планшет станцией не работает: печатать ему некуда, а вторая станция дала бы двойные наклейки.
-  var touchOnly = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-  if (touchOnly) {
-    stop('phone');
-    // На телефоне остаётся только объяснение: очередь и список здесь ничего не значат.
+  // На телефоне и во второй вкладке остаётся только объяснение: очередь и список здесь ничего не значат.
+  function onlyStatus() {
     document.querySelector('.rule').hidden = true;
     $('queue').hidden = true;
     document.querySelector('.top').nextElementSibling.hidden = true;
   }
+
+  // Вторая вкладка станции в том же браузере (двойной клик по ярлыку) печатала бы каждую наклейку дважды.
+  // Новая вкладка шлёт 'hi', живая отвечает 'here'. Если две открылись разом, остаётся та, у которой id меньше:
+  // вторая видит чужой 'hi' с меньшим id и уступает. Ответ не пришёл за 300 мс: станция одна, запускаемся.
+  // Закрытая вкладка не мешает: после перезагрузки второй ответить некому.
+  function claimStation() {
+    if (typeof BroadcastChannel === 'undefined') return Promise.resolve(true);
+    return new Promise(function (resolve) {
+      var ch = new BroadcastChannel('forum-station'), me = Math.random(), state = 'check', timer;
+      function finish(first) {
+        clearTimeout(timer);
+        state = first ? 'run' : 'dup';
+        resolve(first);
+      }
+      ch.onmessage = function (e) {
+        var m = e.data || {};
+        if (m.t === 'hi') {
+          if (state === 'run' || (state === 'check' && me < m.id)) ch.postMessage({ t: 'here' });
+          else if (state === 'check') finish(false);
+        } else if (m.t === 'here' && state === 'check') finish(false);
+      };
+      ch.postMessage({ t: 'hi', id: me });
+      timer = setTimeout(function () { finish(true); }, 300);
+    });
+  }
+
+  // Телефон или планшет станцией не работает: печатать ему некуда, а вторая станция дала бы двойные наклейки.
+  var touchOnly = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+  if (touchOnly) {
+    stop('phone');
+    onlyStatus();
+  }
   else if (!K) stop('link');
   else if (!API) stop('addr');
-  else { loadFont(); keepAwake(); poll(); }
+  else claimStation().then(function (first) {
+    if (first) { loadFont(); keepAwake(); poll(); }
+    else { stop('dup'); onlyStatus(); }
+  });
 })();
 </script>
 </body>

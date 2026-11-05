@@ -142,6 +142,10 @@ td { display: block; min-width: 0; }
 .rp.sent svg, .rp.err svg { color: inherit; }
 @media (hover: hover) { .rp:not([aria-disabled="true"]):hover, .pl:not([aria-disabled="true"]):hover { background: #EBEBED; } .rp.err:hover { background: rgba(255,59,48,.14); } }
 @media (prefers-reduced-motion: no-preference) { .rp.busy svg, .pl.busy svg { animation: spin .9s linear infinite; } }
+/* Печать застряла (ждёт дольше 30 с): красная полоса слева и красный текст статуса, без мигания. Полосу несёт карточка, в таблице первая ячейка. */
+tr.stuck { box-shadow: inset 3px 0 0 var(--bad), var(--shadow-sm); }
+tr.stuck .pr-t { color: var(--bad); font-weight: 600; }
+.late { margin: 12px 0 8px; padding: 10px 14px; border-radius: 14px; background: var(--bad-tint); color: var(--bad); font-size: 15px; line-height: 1.35; text-wrap: pretty; }
 /* Подсказка про «Печать здесь», только на компьютере */
 .tip { margin: 12px 0 8px; font-size: 14px; line-height: 1.35; color: var(--muted); text-wrap: pretty; }
 .nm { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
@@ -196,6 +200,8 @@ td { display: block; min-width: 0; }
   th { padding: 12px 16px; background: var(--group); color: var(--muted); font-size: 13px; font-weight: 400; letter-spacing: .02em; text-align: left; }
   td, td.c-pr, td.c-pr:empty { padding: 14px 16px; vertical-align: middle; border-top: 1px solid var(--hair); }
   tbody tr:first-child td { border-top: 0; }
+  tr.stuck { box-shadow: none; }
+  tr.stuck td:first-child { box-shadow: inset 3px 0 0 var(--bad); }
   .c-id { width: 72px; }
   .c-st { width: 172px; }
   .c-pr { width: 232px; }
@@ -294,6 +300,7 @@ td { display: block; min-width: 0; }
   </div>
 
   <section id="list">
+    <p class="late" id="late" hidden></p>
     <p class="tip" id="tip" hidden>«Печать здесь» печатает на принтере этого компьютера, даже без станции и при плохом интернете</p>
     <p class="note" id="note" role="status">Загружаю список…</p>
     <div class="card" id="card" hidden>
@@ -338,11 +345,15 @@ td { display: block; min-width: 0; }
   var ALIVE_MS = 15000;
   // Подтверждение «Отправлено на печать» висит на кнопке столько, потом кнопка снова «Напечатать ещё раз».
   var SENT_MS = 2000;
+  // Наклейка ждёт печати дольше этого (по часам таблицы): строка краснеет, над списком появляется подсказка.
+  var STUCK_MS = 30000;
+  var srvNow = 0;       // время таблицы из последнего списка: с ним сравнивается waitSince
   var act = {};         // id → busy | sent | net | lock | gone: что сейчас с кнопкой «Напечатать ещё раз»; переживает пересборку строк
   var again = false;    // после печати список обновляется сразу; если запрос уже идёт, повторяем его следом
   // «Печать здесь» только там, где есть мышь: на телефоне и планшете принтера рядом нет, печатает станция у входа.
   var canPrint = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   var here = {};        // id → true, пока наклейка готовится и уходит на печать; переживает пересборку строк
+  var nope = {};        // id → true две секунды после «Отмена» в вопросе «Наклейка вышла из принтера?»: на кнопке «Не напечатано»
   // «Печать здесь» уже случилась, а отметка «напечатано» в таблицу ещё не дошла (нет связи): id → true. Список такую строку показывает
   // «напечатана», хотя таблица ещё говорит «ждёт», а отметку повторяют после каждого удачного списка: иначе станция напечатает наклейку второй раз.
   var unacked = {};
@@ -413,7 +424,8 @@ td { display: block; min-width: 0; }
     pill.append(p.in ? 'Пришёл' + (p.at ? ' ' + p.at : '') : 'Не пришёл');
     st.append(pill);
     var wait = p.print === 'wait';
-    var label = wait ? 'ждёт печати' : p.print === 'done' ? 'напечатана' : '';
+    var label = wait ? waitLabel(p) : p.print === 'done' ? 'напечатана' : '';
+    if (stuckFor(p)) tr.classList.add('stuck');
     var pr = h('td', 'c-pr' + (wait ? ' wait' : ''));
     if (!p.in) pr.textContent = label;
     else {
@@ -431,6 +443,34 @@ td { display: block; min-width: 0; }
     }
     tr.append(h('td', 'c-id', p.id), who, st, pr);
     return tr;
+  }
+
+  // Сколько мс наклейка ждёт сверх порога: 0, если не застряла или таблица не прислала waitSince.
+  function stuckFor(p) {
+    var d = p.print === 'wait' && p.waitSince > 0 ? srvNow - p.waitSince : 0;
+    return d > STUCK_MS ? d : 0;
+  }
+  function waitLabel(p) {
+    var d = stuckFor(p);
+    return !d ? 'ждёт печати' : 'ждёт печати ' + (d < 60000 ? Math.floor(d / 1000) + ' с' : Math.floor(d / 60000) + ' мин');
+  }
+  // Строки не пересобираются, пока список не изменился, а время идёт: подпись и красный акцент обновляются на месте.
+  function paintWaits() {
+    var n = 0;
+    people.forEach(function (p) {
+      if (p.print !== 'wait') return;
+      if (stuckFor(p)) n++;
+      p.el.classList.toggle('stuck', !!stuckFor(p));
+      var t = p.el.querySelector('.pr-t');
+      if (t) t.textContent = waitLabel(p);
+    });
+    var late = $('late');
+    late.hidden = !n;
+    if (n) {
+      var tail = canPrint ? 'нажмите «Печать здесь»' : 'нажмите «Напечатать ещё раз»';
+      var m = n % 10, c = n % 100;
+      late.textContent = 'Печать задерживается у ' + n + (m === 1 && c !== 11 ? ' человека' : ' человек') + '. Проверьте ноутбук с принтером или ' + tail;
+    }
   }
 
   // ---- Напечатать ещё раз ----
@@ -541,7 +581,7 @@ td { display: block; min-width: 0; }
     var busy = !!here[b.dataset.pl];
     b.className = 'pl' + (busy ? ' busy' : '');
     b.innerHTML = (busy ? SPIN : MONITOR) + '<span></span>';
-    b.lastChild.textContent = busy ? 'Печатаю…' : 'Печать здесь';
+    b.lastChild.textContent = busy ? 'Печатаю…' : nope[b.dataset.pl] ? 'Не напечатано' : 'Печать здесь';
     if (busy) { b.setAttribute('aria-disabled', 'true'); b.setAttribute('aria-busy', 'true'); }
     else { b.removeAttribute('aria-disabled'); b.removeAttribute('aria-busy'); }
   }
@@ -558,11 +598,19 @@ td { display: block; min-width: 0; }
     setHere(id, true);
     try { await printSticker(p); } finally { setHere(id, false); }
     if (dead) return;
+    // Браузер не сообщает, что в окне печати нажали «Отмена», и не знает, есть ли у компьютера принтер: спрашиваем человека.
+    // «Отмена»: ничего не отправляем, строка остаётся как была.
+    if (!confirm('Наклейка вышла из принтера?')) {
+      nope[id] = true;
+      setHere(id, false);
+      setTimeout(function () { delete nope[id]; if (!dead) setHere(id, false); }, 2000);
+      return;
+    }
     // Печать уже случилась: строка сразу «напечатана», не дожидаясь таблицы. sig сбрасывается, чтобы ближайший список пересобрал строки.
     unacked[id] = true;
     p = cur(id);
     if (p) {
-      p.print = 'done'; p.el = row(p); sig = ''; paintList();
+      p.print = 'done'; p.el = row(p); sig = ''; paintWaits(); paintList();
       $('live').textContent = p.name + ': напечатана';
     }
     // Отметка в таблицу: станция не напечатает эту наклейку второй раз. Не дошла (нет связи): молчим, flush повторит её после удачного списка.
@@ -574,7 +622,7 @@ td { display: block; min-width: 0; }
     if (acking[id]) return false;
     acking[id] = true;
     var res = null;
-    try { res = await api({ a: 'printed', id: id }); } catch (e) { res = null; }
+    try { res = await api({ a: 'printed', id: id, src: 'here' }); } catch (e) { res = null; }
     delete acking[id];
     if (res && (res.ok || res.error === 'not_found')) delete unacked[id];
     return !!(res && res.ok);
@@ -589,6 +637,7 @@ td { display: block; min-width: 0; }
     var list = res.people;
     var s = JSON.stringify(list);
     loadedAt = clock.format(new Date());
+    srvNow = typeof res.now === 'number' ? res.now : 0;
     if (!loaded || s !== sig) {
       sig = s;
       people = list.map(function (p) {
@@ -605,6 +654,7 @@ td { display: block; min-width: 0; }
     $('sync').textContent = 'Обновлено ' + loadedAt;
     paintStation(res);
     paintHead();
+    paintWaits();
     paintList();
     if (first) {
       $('tip').hidden = !canPrint;
