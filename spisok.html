@@ -7,6 +7,10 @@
 <meta name="robots" content="noindex">
 <title>Список участников</title>
 <style>
+/* РАЗМЕР НАКЛЕЙКИ для кнопки «Печать здесь»: те же константы, что в pechat.html. Размер рулона пока неизвестен, по умолчанию 58 x 40 мм.
+   @page берёт их отсюда скриптом (CSS не принимает var() в правиле @page), вёрстка наклейки тоже. */
+:root { --label-w: 58mm; --label-h: 40mm; }
+
 /* Живой список для организатора: сколько пришло, кто пришёл, кто нет. Токены: memory-bank/features/design.md. Фон всегда белый, тёмной темы нет. */
 :root {
   --bg: #FFFFFF; --group: #F5F5F7; --ink: #1D1D1F; --muted: #6E6E73; --hair: rgba(0,0,0,.08);
@@ -120,22 +124,26 @@ td { display: block; min-width: 0; }
 .c-pr { padding-left: 12px; font-size: 14px; color: var(--muted); white-space: nowrap; }
 .c-pr:empty { padding: 0; }
 .c-pr.wait { color: var(--warn); }
-/* Наклейка у пришедшего: статус печати и кнопка «Напечатать ещё раз». Печатает только ноутбук у входа, кнопка ставит наклейку в его очередь.
+/* Наклейка у пришедшего: статус печати и кнопки. «Напечатать ещё раз» ставит наклейку в очередь станции у входа. «Печать здесь» (.pl)
+   есть только на компьютере с мышью: печатает на принтере этого компьютера, станция не нужна.
    Телефон: статус слева, кнопка тянется на остаток строки (узкий экран переносит её на свою строку). Таблица: друг под другом */
 .pr { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .pr-s { display: grid; gap: 1px; }
 .pr-n { display: none; font-size: 13px; line-height: 1.3; }
 .stn-down .pr-n { display: block; }
-.rp { flex: 1 1 200px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 6px 14px; border: 0; border-radius: 12px; background: var(--group); color: var(--ink); font-size: 15px; font-weight: 600; line-height: 1.2; white-space: normal; text-align: center; text-wrap: balance; transition: transform 160ms var(--ease), background-color 160ms var(--ease), color 160ms var(--ease); }
-.rp svg { width: 18px; height: 18px; color: var(--accent); }
-.rp:active { transform: scale(.97); }
-.rp[aria-disabled="true"] { cursor: default; transform: none; }
-.rp.busy { cursor: progress; }
+.rp, .pl { flex: 1 1 200px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 6px 14px; border: 0; border-radius: 12px; background: var(--group); color: var(--ink); font-size: 15px; font-weight: 600; line-height: 1.2; white-space: normal; text-align: center; text-wrap: balance; transition: transform 160ms var(--ease), background-color 160ms var(--ease), color 160ms var(--ease); }
+.pl { flex-basis: 140px; }
+.rp svg, .pl svg { width: 18px; height: 18px; color: var(--accent); }
+.rp:active, .pl:active { transform: scale(.97); }
+.rp[aria-disabled="true"], .pl[aria-disabled="true"] { cursor: default; transform: none; }
+.rp.busy, .pl.busy { cursor: progress; }
 .rp.sent { background: var(--ok-tint); color: var(--ok); }
 .rp.err { background: var(--bad-tint); color: var(--bad); }
 .rp.sent svg, .rp.err svg { color: inherit; }
-@media (hover: hover) { .rp:not([aria-disabled="true"]):hover { background: #EBEBED; } .rp.err:hover { background: rgba(255,59,48,.14); } }
-@media (prefers-reduced-motion: no-preference) { .rp.busy svg { animation: spin .9s linear infinite; } }
+@media (hover: hover) { .rp:not([aria-disabled="true"]):hover, .pl:not([aria-disabled="true"]):hover { background: #EBEBED; } .rp.err:hover { background: rgba(255,59,48,.14); } }
+@media (prefers-reduced-motion: no-preference) { .rp.busy svg, .pl.busy svg { animation: spin .9s linear infinite; } }
+/* Подсказка про «Печать здесь», только на компьютере */
+.tip { margin: 12px 0 8px; font-size: 14px; line-height: 1.35; color: var(--muted); text-wrap: pretty; }
 .nm { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 .nm b { font-size: 17px; line-height: 1.25; font-weight: 600; text-wrap: balance; overflow-wrap: break-word; }
 .tag { padding: 1px 8px; border-radius: 999px; background: var(--group); color: var(--muted); font-size: 13px; line-height: 1.4; white-space: nowrap; }
@@ -192,8 +200,14 @@ td { display: block; min-width: 0; }
   .c-st { width: 172px; }
   .c-pr { width: 232px; }
   .pr { flex-direction: column; align-items: flex-start; gap: 6px; }
-  .rp { flex: none; gap: 6px; max-width: 100%; min-height: 44px; padding: 4px 10px; font-size: 14px; }
-  .rp svg { width: 16px; height: 16px; }
+  .rp, .pl { flex: none; gap: 6px; max-width: 100%; min-height: 44px; padding: 4px 10px; font-size: 14px; }
+  .rp svg, .pl svg { width: 16px; height: 16px; }
+}
+/* Компьютер с «Печать здесь»: от 960 px столбец наклейки шире, статус сверху, две кнопки в одну строку под ним */
+@media (min-width: 960px) {
+  .pl-on .c-pr { width: 360px; }
+  .pl-on .pr { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .pl-on .pr-s { flex: 0 0 100%; }
 }
 
 /* Ссылка не открывается: пустой экран с причиной и выходом, как на странице «Вход» */
@@ -203,13 +217,39 @@ td { display: block; min-width: 0; }
 .fatal h1 { margin: 0; font-size: 28px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; text-wrap: balance; }
 .fatal p { margin: 4px 0 0; max-width: 22em; font-size: 17px; line-height: 1.4; color: var(--muted); text-wrap: pretty; }
 
+/* Шрифт наклейки Caveat лежит рядом со страницей (vendor/fonts/): печать не зависит от интернета и Google Fonts.
+   Файлы woff2 из @fontsource/caveat 5.3.0, лицензия OFL-1.1 в vendor/fonts/Caveat.LICENSE. Казахские буквы (Ә Ғ Қ Ң Ө Ү Һ) в наборе cyrillic-ext. */
+@font-face { font-family: "Caveat"; font-style: normal; font-weight: 400; font-display: swap; src: url(vendor/fonts/caveat-cyrillic-ext-400-normal.woff2) format("woff2"); unicode-range: U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F; }
+@font-face { font-family: "Caveat"; font-style: normal; font-weight: 700; font-display: swap; src: url(vendor/fonts/caveat-cyrillic-ext-700-normal.woff2) format("woff2"); unicode-range: U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F; }
+@font-face { font-family: "Caveat"; font-style: normal; font-weight: 400; font-display: swap; src: url(vendor/fonts/caveat-cyrillic-400-normal.woff2) format("woff2"); unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116; }
+@font-face { font-family: "Caveat"; font-style: normal; font-weight: 700; font-display: swap; src: url(vendor/fonts/caveat-cyrillic-700-normal.woff2) format("woff2"); unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116; }
+@font-face { font-family: "Caveat"; font-style: normal; font-weight: 400; font-display: swap; src: url(vendor/fonts/caveat-latin-ext-400-normal.woff2) format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: "Caveat"; font-style: normal; font-weight: 700; font-display: swap; src: url(vendor/fonts/caveat-latin-ext-700-normal.woff2) format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: "Caveat"; font-style: normal; font-weight: 400; font-display: swap; src: url(vendor/fonts/caveat-latin-400-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "Caveat"; font-style: normal; font-weight: 700; font-display: swap; src: url(vendor/fonts/caveat-latin-700-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+/* Наклейка: только чёрный на белом, вид и размеры как на странице «Станция печати» (pechat.html). Вне печати прячется за краем экрана,
+   но остаётся в вёрстке, чтобы мерить текст. */
+#sticker { position: fixed; left: -10000px; top: 0; width: var(--label-w); height: var(--label-h); padding: 2.2mm 3mm; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; overflow: hidden; background: #fff; color: #000; text-align: left; font-family: "Caveat", "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive; font-weight: 700; line-height: 1.02; }
+#sticker .fit { display: block; width: max-content; white-space: nowrap; transform: rotate(-3deg); transform-origin: left center; }
+#st-last { margin-left: 4mm; }
+/* Имя и фамилия жирно, должность и компания тонко: главное читается первым. */
+#st-pos, #st-comp { margin-left: 1.5mm; font-weight: 400; }
+#st-pos { margin-top: 1mm; }
+#sticker .fit:empty { display: none; }
+@media print {
+  html, body { margin: 0; padding: 0; min-height: 0; background: #fff; }
+  #app, #fatal { display: none !important; }
+  /* На 0,5 мм ниже страницы: иначе округление добавляет вторую пустую наклейку. */
+  #sticker { position: static; height: calc(var(--label-h) - 0.5mm); }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .pop, .banner, .fatal { animation: pop 240ms var(--ease) backwards; }
 }
 @keyframes pop { from { opacity: 0; transform: scale(.96); } }
 @media (prefers-reduced-motion: reduce) {
-  .thumb, .meter i, .seg button, .btn, .rp { transition: none; }
-  .seg button:active, .rp:active { transform: none; }
+  .thumb, .meter i, .seg button, .btn, .rp, .pl { transition: none; }
+  .seg button:active, .rp:active, .pl:active { transform: none; }
 }
 </style>
 </head>
@@ -254,6 +294,7 @@ td { display: block; min-width: 0; }
   </div>
 
   <section id="list">
+    <p class="tip" id="tip" hidden>«Печать здесь» печатает на принтере этого компьютера, даже без станции и при плохом интернете</p>
     <p class="note" id="note" role="status">Загружаю список…</p>
     <div class="card" id="card" hidden>
       <table>
@@ -264,6 +305,8 @@ td { display: block; min-width: 0; }
   </section>
   <p class="sr" id="live" role="status"></p>
 </main>
+
+<div id="sticker" aria-hidden="true"><span class="fit" id="st-first"></span><span class="fit" id="st-last"></span><span class="fit" id="st-pos"></span><span class="fit" id="st-comp"></span></div>
 
 <section class="fatal" id="fatal" role="alert" hidden>
   <div class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/></svg></div>
@@ -280,7 +323,8 @@ td { display: block; min-width: 0; }
   // Секрет живёт только в хеше ссылки: на сервер не уходит, никуда не пишется и не логируется.
   var K = new URLSearchParams(location.hash.slice(1)).get('k') || '';
   // Пауза считается с конца прошлого запроса: ответ Google идёт 2–3 с, запросы не наезжают друг на друга.
-  var REFRESH_MS = 20000;
+  // Раз в 10 с: организатор на телефоне и на компьютере видит новых пришедших почти сразу.
+  var REFRESH_MS = 10000;
   // Время в таблице пишет Code.gs в поясе проекта: «Обновлено» показываем в нём же, чтобы часы на экране сходились.
   var clock = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Asia/Almaty', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
   var words = new Intl.Collator('ru');
@@ -296,11 +340,19 @@ td { display: block; min-width: 0; }
   var SENT_MS = 2000;
   var act = {};         // id → busy | sent | net | lock | gone: что сейчас с кнопкой «Напечатать ещё раз»; переживает пересборку строк
   var again = false;    // после печати список обновляется сразу; если запрос уже идёт, повторяем его следом
+  // «Печать здесь» только там, где есть мышь: на телефоне и планшете принтера рядом нет, печатает станция у входа.
+  var canPrint = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  var here = {};        // id → true, пока наклейка готовится и уходит на печать; переживает пересборку строк
+  // «Печать здесь» уже случилась, а отметка «напечатано» в таблицу ещё не дошла (нет связи): id → true. Список такую строку показывает
+  // «напечатана», хотя таблица ещё говорит «ждёт», а отметку повторяют после каждого удачного списка: иначе станция напечатает наклейку второй раз.
+  var unacked = {};
+  var acking = {};      // id → true, пока отметка уходит в таблицу
 
   var CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
   var RING = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg>';
   var PRINTER = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6"/><path d="M6 18H4a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2"/><path d="M6 14h12v7H6z"/></svg>';
   var SPIN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.2-8.55"/></svg>';
+  var MONITOR = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M8 20h8M12 16.5V20"/></svg>';
   var BTN = {
     idle: 'Напечатать ещё раз', busy: 'Отправляю…', sent: 'Отправлено на печать',
     net: 'Нет связи, повторите', lock: 'Таблица занята, повторите', gone: 'Нет в таблице, обновите список',
@@ -312,6 +364,7 @@ td { display: block; min-width: 0; }
     if (text != null) e.textContent = text;
     return e;
   }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   // Регистр и ё/е не важны.
   function norm(s) { return String(s).toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim(); }
 
@@ -335,7 +388,7 @@ td { display: block; min-width: 0; }
     try { res = await api({ a: 'list' }); } catch (e) { res = null; }
     loading = false;
     $('b-refresh').removeAttribute('aria-busy');
-    if (res && res.ok && Array.isArray(res.people)) ingest(res);
+    if (res && res.ok && Array.isArray(res.people)) { ingest(res); flush(); }
     else if (res && res.error === 'secret') return fatal('Ссылка устарела', 'Попросите новую ссылку у организатора');
     else failed();
     if (again) { again = false; return load(); }
@@ -373,6 +426,7 @@ td { display: block; min-width: 0; }
         box.append(status);
       }
       box.append(reprintBtn(p));
+      if (canPrint) box.append(hereBtn(p));
       pr.append(box);
     }
     tr.append(h('td', 'c-id', p.id), who, st, pr);
@@ -417,6 +471,7 @@ td { display: block; min-width: 0; }
     try { res = await api({ a: 'reprint', id: id }); } catch (e) { res = null; }
     if (dead) return;
     if (res && res.ok) {
+      delete unacked[id]; // наклейка снова в очереди станции: прежняя отметка «напечатано» её бы сняла
       setAct(id, 'sent');
       // Статус строки меняется сразу, не дожидаясь списка: в таблице уже стоит «ждёт». Список ниже подтвердит.
       // sig сбрасывается: станция могла успеть напечатать, и список придёт таким же, как до нажатия. Его надо принять, а не счесть «без изменений».
@@ -428,6 +483,108 @@ td { display: block; min-width: 0; }
     else setAct(id, res && res.error === 'busy' ? 'lock' : res && res.error === 'not_found' ? 'gone' : 'net');
   }
 
+  // ---- Печать здесь ----
+  // Наклейка печатается на принтере этого компьютера: данные берутся из строки на экране, таблица для печати не нужна.
+  // Вид и размеры те же, что на странице «Станция печати» (pechat.html).
+  // Шрифт Caveat лежит рядом со страницей. Грузится при открытии списка: связь потом пропадёт, а наклейка напечатается тем же шрифтом.
+  // Образец с буквами всех наборов (кириллица, казахские буквы, латиница, латиница с диакритикой) подтягивает все файлы.
+  function loadFont() {
+    ['700', '400'].forEach(function (w) { document.fonts.load(w + ' 40px Caveat', 'Аб Ә Ab ş').catch(function () {}); });
+  }
+
+  // Имя и фамилия по одному размеру, должность и компания по своему. Каждая строка целиком по ширине: ужимаем, не режем.
+  function fit(ids, max, avail) {
+    var els = ids.map($).filter(function (e) { return e.textContent; });
+    if (!els.length) return;
+    els.forEach(function (e) { e.style.fontSize = max + 'px'; });
+    var w = Math.max.apply(null, els.map(function (e) { return e.offsetWidth; }));
+    var size = w > avail ? max * avail / w : max;
+    els.forEach(function (e) { e.style.fontSize = Math.floor(size * 10) / 10 + 'px'; });
+  }
+
+  async function doPrint(p) {
+    $('st-first').textContent = p.first || '';
+    // Запятая после фамилии, как на образце, если ниже есть должность или компания.
+    $('st-last').textContent = (p.last || '') + (p.last && (p.position || p.company) ? ',' : '');
+    $('st-pos').textContent = p.position || '';
+    $('st-comp').textContent = p.company || '';
+    var text = [p.first, p.last, p.position, p.company].filter(Boolean).join(' ');
+    await Promise.race([Promise.all([document.fonts.load('700 40px Caveat', text), document.fonts.load('400 40px Caveat', text)]), sleep(4000)]);
+    await Promise.race([document.fonts.ready, sleep(4000)]);
+    var box = $('sticker'), st = getComputedStyle(box);
+    // Запас под отступ лесенки (4 мм) и наклон строк.
+    var avail = (box.clientWidth - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight)) * 0.80;
+    fit(['st-first', 'st-last'], box.clientHeight * 0.30, avail);
+    fit(['st-pos'], box.clientHeight * 0.115, avail);
+    fit(['st-comp'], box.clientHeight * 0.115, avail);
+    window.print();
+  }
+  // Печать строго по одной: следующая наклейка не затирает текст предыдущей.
+  var chain = Promise.resolve();
+  function printSticker(p) {
+    chain = chain.catch(function () {}).then(function () { return doPrint(p); });
+    return chain;
+  }
+
+  function hereBtn(p) {
+    var b = h('button');
+    b.type = 'button';
+    b.dataset.pl = p.id;
+    b.setAttribute('aria-describedby', 'n' + p.id);
+    p.pbtn = b;
+    paintHere(b);
+    return b;
+  }
+
+  // Как у «Напечатать ещё раз»: кнопка перерисовывается на месте, фокус с клавиатуры остаётся на ней.
+  function paintHere(b) {
+    var busy = !!here[b.dataset.pl];
+    b.className = 'pl' + (busy ? ' busy' : '');
+    b.innerHTML = (busy ? SPIN : MONITOR) + '<span></span>';
+    b.lastChild.textContent = busy ? 'Печатаю…' : 'Печать здесь';
+    if (busy) { b.setAttribute('aria-disabled', 'true'); b.setAttribute('aria-busy', 'true'); }
+    else { b.removeAttribute('aria-disabled'); b.removeAttribute('aria-busy'); }
+  }
+
+  function setHere(id, on) {
+    if (on) here[id] = true; else delete here[id];
+    var p = cur(id);
+    if (p && p.pbtn) paintHere(p.pbtn);
+  }
+
+  async function printHere(id) {
+    var p = cur(id);
+    if (!p || here[id]) return;
+    setHere(id, true);
+    try { await printSticker(p); } finally { setHere(id, false); }
+    if (dead) return;
+    // Печать уже случилась: строка сразу «напечатана», не дожидаясь таблицы. sig сбрасывается, чтобы ближайший список пересобрал строки.
+    unacked[id] = true;
+    p = cur(id);
+    if (p) {
+      p.print = 'done'; p.el = row(p); sig = ''; paintList();
+      $('live').textContent = p.name + ': напечатана';
+    }
+    // Отметка в таблицу: станция не напечатает эту наклейку второй раз. Не дошла (нет связи): молчим, flush повторит её после удачного списка.
+    if (await ack(id) && !dead) { if (loading) again = true; else load(); }
+  }
+
+  // Отметка «напечатано» в таблицу. Дошла или участника в таблице уже нет: больше не повторяем.
+  async function ack(id) {
+    if (acking[id]) return false;
+    acking[id] = true;
+    var res = null;
+    try { res = await api({ a: 'printed', id: id }); } catch (e) { res = null; }
+    delete acking[id];
+    if (res && (res.ok || res.error === 'not_found')) delete unacked[id];
+    return !!(res && res.ok);
+  }
+
+  // После удачного списка не дошедшие отметки уходят заново. Пока по строке идёт «Напечатать ещё раз», её отметку не трогаем.
+  async function flush() {
+    for (var id in unacked) if (act[id] !== 'busy') await ack(id);
+  }
+
   function ingest(res) {
     var list = res.people;
     var s = JSON.stringify(list);
@@ -437,6 +594,7 @@ td { display: block; min-width: 0; }
       people = list.map(function (p) {
         p.name = [p.first, p.last].filter(Boolean).join(' ');
         p.hay = norm(p.first + ' ' + p.last + ' ' + p.company);
+        if (unacked[p.id]) p.print = 'done';
         p.el = row(p);
         return p;
       });
@@ -449,6 +607,7 @@ td { display: block; min-width: 0; }
     paintHead();
     paintList();
     if (first) {
+      $('tip').hidden = !canPrint;
       $('hero').classList.remove('pending');
       $('hero').classList.add('pop');
       $('list').classList.add('pop');
@@ -508,7 +667,8 @@ td { display: block; min-width: 0; }
 
   function paintList() {
     // Список пересобирается: кнопка, на которой стоял фокус, должна остаться в фокусе.
-    var focused = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.rp : '';
+    var d = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset : {};
+    var focused = d.rp || d.pl || '', which = d.pl ? 'pbtn' : 'btn';
     var view = people.filter(function (p) {
       if (filter === 'in' && !p.in) return false;
       if (filter === 'out' && p.in) return false;
@@ -517,7 +677,7 @@ td { display: block; min-width: 0; }
     var rows = $('rows');
     rows.replaceChildren.apply(rows, view.map(function (p) { return p.el; }));
     var kept = focused && cur(focused);
-    if (kept && kept.btn.isConnected) kept.btn.focus({ preventScroll: true });
+    if (kept && kept[which] && kept[which].isConnected) kept[which].focus({ preventScroll: true });
     $('card').hidden = !view.length;
     $('note').hidden = !!view.length;
     $('note').textContent = 'Никого не нашли';
@@ -551,8 +711,9 @@ td { display: block; min-width: 0; }
   $('b-refresh').addEventListener('click', load);
   $('b-csv').addEventListener('click', download);
   $('rows').addEventListener('click', function (e) {
-    var b = e.target.closest('.rp');
+    var b = e.target.closest('.rp'), l = e.target.closest('.pl');
     if (b) reprint(b.dataset.rp);
+    if (l) printHere(l.dataset.pl);
   });
   $('seg').addEventListener('click', function (e) {
     var b = e.target.closest('button');
@@ -566,6 +727,16 @@ td { display: block; min-width: 0; }
     terms = norm(this.value).split(' ').filter(Boolean);
     if (loaded) paintList();
   });
+
+  if (canPrint) {
+    $('app').classList.add('pl-on');
+    // Размер страницы печати берём из тех же констант, что и вёрстку наклейки. Телефону правило не нужно: он не печатает.
+    var cs = getComputedStyle(document.documentElement);
+    var pageRule = document.createElement('style');
+    pageRule.textContent = '@page { size: ' + cs.getPropertyValue('--label-w').trim() + ' ' + cs.getPropertyValue('--label-h').trim() + '; margin: 0 }';
+    document.head.append(pageRule);
+    loadFont();
+  }
 
   // Новую ссылку вставили в эту же вкладку: меняется только хеш, страница сама не перезагрузится и осталась бы на старом секрете.
   window.addEventListener('hashchange', function () { location.reload(); });
