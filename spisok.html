@@ -12,7 +12,7 @@
   --bg: #FFFFFF; --group: #F5F5F7; --ink: #1D1D1F; --muted: #6E6E73; --hair: rgba(0,0,0,.08);
   --accent: #0071E3;
   /* Статусы: глубокие цвета держат AA и как текст на белом, и как заливка с белым текстом. Яркие #34C759 и #FF3B30 не проходят (2,2 и 3,6:1). */
-  --ok: #1E7F3C; --warn: #A35A00; --bad: #C4261D;
+  --ok: #1E7F3C; --warn: #A35A00; --bad: #C4261D; --warn-fill: #FF9F0A;
   /* Светлые тоны под текстом статуса */
   --ok-tint: rgba(52,199,89,.12); --bad-tint: rgba(255,59,48,.08);
   --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
@@ -53,8 +53,16 @@ svg { flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-li
 /* Шапка: заголовок, время обновления, кнопки. На телефоне кнопки под блоком явки */
 .top { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "title" "sync" "hero" "acts"; gap: 12px; }
 .title { grid-area: title; margin: 0; font-size: 30px; line-height: 1.12; font-weight: 700; letter-spacing: -.02em; text-wrap: balance; }
-.sync { grid-area: sync; margin: -8px 0 0; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Время обновления и станция печати. Станция в порядке: тихая серая строка с зелёной точкой. Не отвечает: оранжевая, плюс подсказка, что делать */
+.meta { grid-area: sync; margin: -8px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 14px; font-size: 14px; line-height: 1.35; color: var(--muted); }
+.meta p { margin: 0; }
+.sync { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .sync:empty { display: none; }
+.stn { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stn::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+.stn.down { color: var(--warn); }
+.stn.down::before { background: var(--warn-fill); }
+.hint { flex-basis: 100%; text-wrap: pretty; }
 .acts { grid-area: acts; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
 /* Кнопки: цель 48 px, стеклянные: светлая заливка, светлая кромка сверху, волосок и мягкая тень */
@@ -112,6 +120,22 @@ td { display: block; min-width: 0; }
 .c-pr { padding-left: 12px; font-size: 14px; color: var(--muted); white-space: nowrap; }
 .c-pr:empty { padding: 0; }
 .c-pr.wait { color: var(--warn); }
+/* Наклейка у пришедшего: статус печати и кнопка «Напечатать ещё раз». Печатает только ноутбук у входа, кнопка ставит наклейку в его очередь.
+   Телефон: статус слева, кнопка тянется на остаток строки (узкий экран переносит её на свою строку). Таблица: друг под другом */
+.pr { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.pr-s { display: grid; gap: 1px; }
+.pr-n { display: none; font-size: 13px; line-height: 1.3; }
+.stn-down .pr-n { display: block; }
+.rp { flex: 1 1 200px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 6px 14px; border: 0; border-radius: 12px; background: var(--group); color: var(--ink); font-size: 15px; font-weight: 600; line-height: 1.2; white-space: normal; text-align: center; text-wrap: balance; transition: transform 160ms var(--ease), background-color 160ms var(--ease), color 160ms var(--ease); }
+.rp svg { width: 18px; height: 18px; color: var(--accent); }
+.rp:active { transform: scale(.97); }
+.rp[aria-disabled="true"] { cursor: default; transform: none; }
+.rp.busy { cursor: progress; }
+.rp.sent { background: var(--ok-tint); color: var(--ok); }
+.rp.err { background: var(--bad-tint); color: var(--bad); }
+.rp.sent svg, .rp.err svg { color: inherit; }
+@media (hover: hover) { .rp:not([aria-disabled="true"]):hover { background: #EBEBED; } .rp.err:hover { background: rgba(255,59,48,.14); } }
+@media (prefers-reduced-motion: no-preference) { .rp.busy svg { animation: spin .9s linear infinite; } }
 .nm { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 .nm b { font-size: 17px; line-height: 1.25; font-weight: 600; text-wrap: balance; overflow-wrap: break-word; }
 .tag { padding: 1px 8px; border-radius: 999px; background: var(--group); color: var(--muted); font-size: 13px; line-height: 1.4; white-space: nowrap; }
@@ -132,13 +156,18 @@ td { display: block; min-width: 0; }
   tr { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "who who" "st st" "id pr"; }
   .c-pr { padding-left: 12px; }
 }
+/* Карточка пришедшего: имя, статус и номер, ниже строка наклейки со статусом печати и кнопкой */
+@media (max-width: 719px) {
+  tr.a { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "who who" "st id" "pr pr"; }
+  .a .c-pr { padding: 0; }
+}
 
 @media (min-width: 640px) {
   .wrap { padding: max(32px, env(safe-area-inset-top)) 32px calc(48px + env(safe-area-inset-bottom)); }
   .top { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title acts" "sync acts" "hero hero"; align-items: center; gap: 4px 16px; }
   .top .hero { margin-top: 16px; }
   .title { font-size: 34px; }
-  .sync { margin: 0; align-self: start; }
+  .meta { margin: 0; align-self: start; }
   .acts { display: flex; }
   .hero { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "count left" "meter meter"; align-items: end; gap: 20px 24px; padding: 28px 32px; }
   .count .n { font-size: clamp(60px, 9.5vw, 88px); }
@@ -159,14 +188,12 @@ td { display: block; min-width: 0; }
   th { padding: 12px 16px; background: var(--group); color: var(--muted); font-size: 13px; font-weight: 400; letter-spacing: .02em; text-align: left; }
   td, td.c-pr, td.c-pr:empty { padding: 14px 16px; vertical-align: middle; border-top: 1px solid var(--hair); }
   tbody tr:first-child td { border-top: 0; }
-  .c-id { width: 88px; }
-  .c-st { width: 188px; }
-  .c-pr { width: 152px; }
-}
-
-@media (min-width: 960px) {
-  .top { grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "title sync acts" "hero hero hero"; gap: 4px 16px; }
-  .sync { align-self: center; text-align: right; }
+  .c-id { width: 72px; }
+  .c-st { width: 172px; }
+  .c-pr { width: 232px; }
+  .pr { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .rp { flex: none; gap: 6px; max-width: 100%; min-height: 44px; padding: 4px 10px; font-size: 14px; }
+  .rp svg { width: 16px; height: 16px; }
 }
 
 /* Ссылка не открывается: пустой экран с причиной и выходом, как на странице «Вход» */
@@ -181,8 +208,8 @@ td { display: block; min-width: 0; }
 }
 @keyframes pop { from { opacity: 0; transform: scale(.96); } }
 @media (prefers-reduced-motion: reduce) {
-  .thumb, .meter i, .seg button, .btn { transition: none; }
-  .seg button:active { transform: none; }
+  .thumb, .meter i, .seg button, .btn, .rp { transition: none; }
+  .seg button:active, .rp:active { transform: none; }
 }
 </style>
 </head>
@@ -195,7 +222,11 @@ td { display: block; min-width: 0; }
 
   <div class="top">
     <h1 class="title">Список участников</h1>
-    <p class="sync" id="sync"></p>
+    <div class="meta">
+      <p class="sync" id="sync"></p>
+      <p class="stn" id="stn" hidden></p>
+      <p class="hint" id="hint" hidden>Откройте ссылку «Ноутбук с принтером» на ноутбуке у входа</p>
+    </div>
 
     <section class="hero pending" id="hero">
       <p class="count" id="count"><span class="lbl">Пришли</span> <span class="n" id="n-came">0</span> <span class="of">из <span id="n-total">0</span></span></p>
@@ -231,6 +262,7 @@ td { display: block; min-width: 0; }
       </table>
     </div>
   </section>
+  <p class="sr" id="live" role="status"></p>
 </main>
 
 <section class="fatal" id="fatal" role="alert" hidden>
@@ -258,9 +290,21 @@ td { display: block; min-width: 0; }
   var terms = [];       // слова из поля поиска
   var filter = 'all';
   var loaded = false, loading = false, dead = false, timer = 0, loadedAt = '';
+  // Станция печати (ноутбук у входа) опрашивает очередь каждые 1,5 с. Опрос не старше 15 с по часам таблицы: станция работает.
+  var ALIVE_MS = 15000;
+  // Подтверждение «Отправлено на печать» висит на кнопке столько, потом кнопка снова «Напечатать ещё раз».
+  var SENT_MS = 2000;
+  var act = {};         // id → busy | sent | net | lock | gone: что сейчас с кнопкой «Напечатать ещё раз»; переживает пересборку строк
+  var again = false;    // после печати список обновляется сразу; если запрос уже идёт, повторяем его следом
 
   var CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
   var RING = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg>';
+  var PRINTER = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6"/><path d="M6 18H4a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2"/><path d="M6 14h12v7H6z"/></svg>';
+  var SPIN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.2-8.55"/></svg>';
+  var BTN = {
+    idle: 'Напечатать ещё раз', busy: 'Отправляю…', sent: 'Отправлено на печать',
+    net: 'Нет связи, повторите', lock: 'Таблица занята, повторите', gone: 'Нет в таблице, обновите список',
+  };
 
   function h(tag, cls, text) {
     var e = document.createElement(tag);
@@ -272,12 +316,12 @@ td { display: block; min-width: 0; }
   function norm(s) { return String(s).toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim(); }
 
   // ---- Запрос ----
-  async function api() {
+  async function api(body) {
     var ctl = new AbortController();
     var t = setTimeout(function () { ctl.abort(); }, 15000);
     try {
       // Без Content-Type: тело уходит как text/plain и обходится без preflight, иначе Apps Script не примет.
-      var res = await fetch(API, { method: 'POST', body: JSON.stringify({ k: K, a: 'list' }), signal: ctl.signal });
+      var res = await fetch(API, { method: 'POST', body: JSON.stringify(Object.assign({ k: K }, body)), signal: ctl.signal });
       return await res.json();
     } finally { clearTimeout(t); }
   }
@@ -288,21 +332,24 @@ td { display: block; min-width: 0; }
     clearTimeout(timer);
     $('b-refresh').setAttribute('aria-busy', 'true');
     var res = null;
-    try { res = await api(); } catch (e) { res = null; }
+    try { res = await api({ a: 'list' }); } catch (e) { res = null; }
     loading = false;
     $('b-refresh').removeAttribute('aria-busy');
-    if (res && res.ok && Array.isArray(res.people)) ingest(res.people);
+    if (res && res.ok && Array.isArray(res.people)) ingest(res);
     else if (res && res.error === 'secret') return fatal('Ссылка устарела', 'Попросите новую ссылку у организатора');
     else failed();
+    if (again) { again = false; return load(); }
     timer = setTimeout(load, REFRESH_MS);
   }
 
   // ---- Данные ----
   function row(p) {
-    var tr = h('tr');
+    var tr = h('tr', p.in ? 'a' : '');
     var who = h('td', 'c-who');
     var nm = h('div', 'nm');
-    nm.append(h('b', '', p.name));
+    var name = h('b', '', p.name);
+    name.id = 'n' + p.id; // на него ссылается кнопка «Напечатать ещё раз»: у всех кнопок одна подпись, имя читается как описание
+    nm.append(name);
     if (p.guest) nm.append(h('span', 'tag', 'гость'));
     who.append(nm);
     var sub = [p.position, p.company].filter(Boolean).join(', ');
@@ -312,12 +359,77 @@ td { display: block; min-width: 0; }
     pill.innerHTML = p.in ? CHECK : RING;
     pill.append(p.in ? 'Пришёл' + (p.at ? ' ' + p.at : '') : 'Не пришёл');
     st.append(pill);
-    var pr = h('td', 'c-pr' + (p.print === 'wait' ? ' wait' : ''), p.print === 'wait' ? 'ждёт печати' : p.print === 'done' ? 'напечатана' : '');
+    var wait = p.print === 'wait';
+    var label = wait ? 'ждёт печати' : p.print === 'done' ? 'напечатана' : '';
+    var pr = h('td', 'c-pr' + (wait ? ' wait' : ''));
+    if (!p.in) pr.textContent = label;
+    else {
+      // «станция не отвечает» лежит в каждой строке «ждёт печати», а показывает его класс на странице (см. paintStation)
+      var box = h('div', 'pr');
+      if (label) {
+        var status = h('span', 'pr-s');
+        status.append(h('span', 'pr-t', label));
+        if (wait) status.append(h('small', 'pr-n', 'станция не отвечает'));
+        box.append(status);
+      }
+      box.append(reprintBtn(p));
+      pr.append(box);
+    }
     tr.append(h('td', 'c-id', p.id), who, st, pr);
     return tr;
   }
 
-  function ingest(list) {
+  // ---- Напечатать ещё раз ----
+  function reprintBtn(p) {
+    var b = h('button');
+    b.type = 'button';
+    b.dataset.rp = p.id;
+    b.setAttribute('aria-describedby', 'n' + p.id);
+    p.btn = b;
+    paintBtn(b);
+    return b;
+  }
+
+  // Кнопка перерисовывается на месте, а не заменяется: фокус с клавиатуры остаётся на ней.
+  function paintBtn(b) {
+    var s = act[b.dataset.rp] || 'idle';
+    b.className = 'rp' + (s === 'idle' ? '' : s === 'busy' || s === 'sent' ? ' ' + s : ' err');
+    b.innerHTML = (s === 'busy' ? SPIN : s === 'sent' ? CHECK : PRINTER) + '<span></span>';
+    b.lastChild.textContent = BTN[s];
+    if (s === 'busy' || s === 'sent') b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
+    if (s === 'busy') b.setAttribute('aria-busy', 'true'); else b.removeAttribute('aria-busy');
+  }
+
+  function cur(id) { return people.find(function (p) { return p.id === id; }); }
+
+  function setAct(id, s) {
+    if (s) act[id] = s; else delete act[id];
+    var p = cur(id);
+    if (p && p.btn) paintBtn(p.btn);
+    // Скринридер не читает смену подписи на кнопке: итог дублируется в скрытой строке состояния.
+    if (p && s && s !== 'busy') $('live').textContent = p.name + ': ' + BTN[s];
+  }
+
+  async function reprint(id) {
+    if (act[id] === 'busy' || act[id] === 'sent') return;
+    setAct(id, 'busy');
+    var res = null;
+    try { res = await api({ a: 'reprint', id: id }); } catch (e) { res = null; }
+    if (dead) return;
+    if (res && res.ok) {
+      setAct(id, 'sent');
+      // Статус строки меняется сразу, не дожидаясь списка: в таблице уже стоит «ждёт». Список ниже подтвердит.
+      // sig сбрасывается: станция могла успеть напечатать, и список придёт таким же, как до нажатия. Его надо принять, а не счесть «без изменений».
+      var p = cur(id);
+      if (p && p.print !== 'wait') { p.print = 'wait'; p.el = row(p); sig = ''; paintList(); }
+      setTimeout(function () { if (act[id] === 'sent') setAct(id); }, SENT_MS);
+      if (loading) again = true; else load();
+    } else if (res && res.error === 'secret') fatal('Ссылка устарела', 'Попросите новую ссылку у организатора');
+    else setAct(id, res && res.error === 'busy' ? 'lock' : res && res.error === 'not_found' ? 'gone' : 'net');
+  }
+
+  function ingest(res) {
+    var list = res.people;
     var s = JSON.stringify(list);
     loadedAt = clock.format(new Date());
     if (!loaded || s !== sig) {
@@ -333,6 +445,7 @@ td { display: block; min-width: 0; }
     loaded = true;
     $('banner').hidden = true;
     $('sync').textContent = 'Обновлено ' + loadedAt;
+    paintStation(res);
     paintHead();
     paintList();
     if (first) {
@@ -346,6 +459,7 @@ td { display: block; min-width: 0; }
     $('banner-t').textContent = loaded ? 'Нет связи. Данные на ' + loadedAt : 'Нет связи. Список не загружен';
     $('banner').hidden = false;
     $('sync').textContent = '';
+    paintStation(null);
     if (!loaded) $('note').hidden = true;
   }
 
@@ -362,6 +476,18 @@ td { display: block; min-width: 0; }
   }
 
   // ---- Экран ----
+  // Нет station и now (старая версия скрипта) или нет связи: про станцию ничего не говорим, ложной тревоги не будет.
+  function paintStation(res) {
+    var known = !!res && typeof res.station === 'number' && typeof res.now === 'number';
+    var down = known && !(res.station > 0 && res.now - res.station <= ALIVE_MS);
+    var stn = $('stn');
+    stn.hidden = !known;
+    stn.className = 'stn' + (down ? ' down' : '');
+    stn.textContent = !known ? '' : !down ? 'Станция печати работает' : 'Станция печати не отвечает' + (res.station > 0 ? ' с ' + clock.format(new Date(res.station)) : '');
+    $('hint').hidden = !down;
+    $('app').classList.toggle('stn-down', down);
+  }
+
   function paintHead() {
     var total = people.length;
     var came = people.filter(function (p) { return p.in; }).length;
@@ -381,6 +507,8 @@ td { display: block; min-width: 0; }
   function byNew(a, b) { return b.ts - a.ts || byName(a, b); }
 
   function paintList() {
+    // Список пересобирается: кнопка, на которой стоял фокус, должна остаться в фокусе.
+    var focused = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.rp : '';
     var view = people.filter(function (p) {
       if (filter === 'in' && !p.in) return false;
       if (filter === 'out' && p.in) return false;
@@ -388,6 +516,8 @@ td { display: block; min-width: 0; }
     }).sort(filter === 'in' ? byNew : byName);
     var rows = $('rows');
     rows.replaceChildren.apply(rows, view.map(function (p) { return p.el; }));
+    var kept = focused && cur(focused);
+    if (kept && kept.btn.isConnected) kept.btn.focus({ preventScroll: true });
     $('card').hidden = !view.length;
     $('note').hidden = !!view.length;
     $('note').textContent = 'Никого не нашли';
@@ -420,6 +550,10 @@ td { display: block; min-width: 0; }
   // ---- Запуск ----
   $('b-refresh').addEventListener('click', load);
   $('b-csv').addEventListener('click', download);
+  $('rows').addEventListener('click', function (e) {
+    var b = e.target.closest('.rp');
+    if (b) reprint(b.dataset.rp);
+  });
   $('seg').addEventListener('click', function (e) {
     var b = e.target.closest('button');
     if (!b) return;

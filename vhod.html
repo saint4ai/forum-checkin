@@ -61,13 +61,19 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
 .stage { position: relative; grid-area: 1 / 1; overflow: hidden; isolation: isolate; border-radius: 28px; background: var(--ink); box-shadow: 0 0 0 1px var(--hair), var(--shadow); }
 .stage video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .aim { position: absolute; inset: 0; display: grid; place-items: center; padding: 72px 0 var(--dock); pointer-events: none; }
-.frame { position: relative; width: min(64%, 260px); width: min(64%, 260px, max(96px, calc(100dvh - 100px - var(--dock)))); aspect-ratio: 1; filter: drop-shadow(0 1px 3px rgba(0,0,0,.35)); }
-.frame i { position: absolute; width: 36px; height: 36px; border: 0 solid #fff; transition: border-color 200ms var(--ease); }
-.frame i:nth-child(1) { top: 0; left: 0; border-width: 4px 0 0 4px; border-top-left-radius: 16px; }
-.frame i:nth-child(2) { top: 0; right: 0; border-width: 4px 4px 0 0; border-top-right-radius: 16px; }
-.frame i:nth-child(3) { bottom: 0; left: 0; border-width: 0 0 4px 4px; border-bottom-left-radius: 16px; }
-.frame i:nth-child(4) { bottom: 0; right: 0; border-width: 0 4px 4px 0; border-bottom-right-radius: 16px; }
-.cam.busy .frame i { border-color: #FF9F0A; }
+/* Прицел без рисунка: его квадрат задаёт, куда возвращаются уголки, когда QR не виден */
+.frame { width: min(64%, 260px); width: min(64%, 260px, max(96px, calc(100dvh - 100px - var(--dock)))); aspect-ratio: 1; }
+/* Четыре независимых уголка (по часовой: левый верхний, правый верхний, правый нижний, левый нижний).
+   JS ставит каждому transform: к углу прицела или к углу найденного QR с отступом. Двигаются только transform и opacity */
+.corners { position: absolute; inset: 0; pointer-events: none; --tr: 140ms; filter: drop-shadow(0 0 1px rgba(0,0,0,.5)) drop-shadow(0 1px 3px rgba(0,0,0,.3)); }
+.corners i { position: absolute; left: 0; top: 0; width: 36px; height: 36px; transform-origin: 0 0; }
+.corners i::before { content: ""; position: absolute; inset: 0; border: 0 solid var(--arm, #fff); }
+.corners i:nth-child(1) { --dx: -1; --dy: -1; --n: 0; } .corners i:nth-child(1)::before { border-width: 4px 0 0 4px; border-top-left-radius: 16px; }
+.corners i:nth-child(2) { --dx: 1; --dy: -1; --n: 1; } .corners i:nth-child(2)::before { border-width: 4px 4px 0 0; border-top-right-radius: 16px; }
+.corners i:nth-child(3) { --dx: 1; --dy: 1; --n: 2; } .corners i:nth-child(3)::before { border-width: 0 4px 4px 0; border-bottom-right-radius: 16px; }
+.corners i:nth-child(4) { --dx: -1; --dy: 1; --n: 3; } .corners i:nth-child(4)::before { border-width: 0 0 4px 4px; border-bottom-left-radius: 16px; }
+/* QR найден и отмечаю: уголки синие с белой кромкой, чтобы читаться и на белой бумаге с QR, и на тёмном фоне. Цвет виден и без движения */
+.cam[data-state="found"] .corners, .cam[data-state="sending"] .corners { --arm: #0A84FF; filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff) drop-shadow(0 0 7px rgba(10,132,255,.55)); }
 .cap { position: absolute; left: 50%; top: 16px; width: max-content; max-width: calc(100% - 24px); margin: 0; padding: 10px 18px; border-radius: 22px; transform: translateX(-50%); background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); color: var(--ink); font-size: 16px; font-weight: 400; line-height: 1.3; text-align: center; text-wrap: balance; box-shadow: var(--glass-rim), var(--glass-shadow); }
 .bar { position: relative; grid-area: 1 / 1; align-self: end; z-index: 1; display: grid; gap: 8px; margin: 12px; padding: 8px; border-radius: 28px; background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-rim), var(--glass-shadow); }
 .bar .btn { border-radius: 20px; }
@@ -76,6 +82,34 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
 @media (max-width: 340px) { .cap { padding: 9px 12px; font-size: 14px; } }
 /* Низкий экран (телефон лёжа): кнопки в один ряд, чтобы док не съедал камеру */
 @media (max-height: 480px) { .cam, .cam.single { --dock: 100px; } .bar { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); } }
+
+/* Имя участника из списка на телефоне: показывается сразу после считывания, пока таблица отвечает.
+   Решающий экран (зелёный, жёлтый, красный) по-прежнему только после ответа таблицы */
+.pcard { position: absolute; left: 12px; right: 12px; bottom: var(--dock); max-width: 360px; margin: 0 auto; padding: 12px 18px 15px; overflow: hidden; border-radius: 20px; text-align: center; background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-rim), var(--glass-shadow); }
+.pcard b { display: block; font-size: 22px; line-height: 1.2; font-weight: 600; text-wrap: balance; overflow-wrap: break-word; }
+.pcard span { display: block; margin-top: 2px; font-size: 15px; color: rgba(29,29,31,.72); text-wrap: pretty; overflow-wrap: break-word; }
+.pcard span:empty { display: none; }
+.prog { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; overflow: hidden; background: rgba(0,113,227,.14); }
+.prog::before { content: ""; position: absolute; inset: 0; background: var(--accent); opacity: .45; }
+/* Низкие экраны: карточка тоньше, чтобы не закрывать нижнюю часть прицела; лёжа остаётся только имя */
+@media (max-height: 640px) { .pcard { padding: 8px 16px 11px; } .pcard b { font-size: 19px; } .pcard span { margin-top: 0; font-size: 13px; } }
+@media (max-height: 480px) { .pcard span { display: none; } }
+/* Движение камеры: уголки едут к QR за 140-220 мс, «защёлкиваются» и по очереди притухают (свет бежит по рамке).
+   Только transform и opacity. Без анимации (reduced-motion) уголки переставляются сразу, а состояние видно по свечению и полосе */
+@media (prefers-reduced-motion: no-preference) {
+  .corners i { transition: transform var(--tr) var(--ease); }
+  .cam[data-state="sending"] .corners i::before { animation: snap 300ms var(--spring) backwards, chase 1.2s ease-in-out calc(300ms + var(--n) * 150ms) infinite; }
+  .cam[data-state="found"] .cap { animation: cap-found 200ms var(--ease); }
+  .cam[data-state="sending"] .cap { animation: cap-send 200ms var(--ease); }
+  .pcard { animation: pop 240ms var(--ease) backwards; }
+  .prog::before { width: 40%; opacity: 1; animation: slide 1.1s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+}
+@keyframes snap { from { transform: translate(calc(var(--dx) * 9px), calc(var(--dy) * 9px)); } }
+@keyframes chase { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+@keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+/* Две одинаковые анимации с разными именами: так подпись «выскакивает» при каждой смене состояния */
+@keyframes cap-found { from { opacity: 0; transform: translateX(-50%) scale(.94); } }
+@keyframes cap-send { from { opacity: 0; transform: translateX(-50%) scale(.94); } }
 
 /* Результат: во весь экран, цвет + иконка + заголовок. Цвет возникает сразу, содержимое выезжает за 240 мс.
    Цвет заливки остаётся прежним сверху, вниз он глубже: вертикальный градиент того же тона только темнее, так что контраст белого текста не падает */
@@ -166,10 +200,12 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
 <div id="live" class="sr" role="status" aria-live="polite"></div>
 
 <main>
-  <section id="s-camera" class="cam" aria-label="Камера" hidden>
-    <div class="stage">
+  <section id="s-camera" class="cam" data-state="search" aria-label="Камера" hidden>
+    <div class="stage" id="stage">
       <video id="video" playsinline muted autoplay aria-hidden="true"></video>
-      <div class="aim" aria-hidden="true"><div class="frame"><i></i><i></i><i></i><i></i></div><p class="cap" id="cap">Наведите камеру на QR участника</p></div>
+      <div class="aim" aria-hidden="true"><div class="frame" id="frame"></div><p class="cap" id="cap">Наведите камеру на QR участника</p></div>
+      <div class="pcard" id="pcard" aria-hidden="true" hidden><b id="pcard-name"></b><span id="pcard-co"></span><div class="prog"></div></div>
+      <div class="corners" id="corners" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     </div>
     <div class="bar">
       <button type="button" class="btn" id="b-find">Найти по фамилии</button>
@@ -229,11 +265,23 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
   // Секрет сотрудников живёт только в хеше ссылки: на сервер не уходит, никуда не пишется.
   var K = new URLSearchParams(location.hash.slice(1)).get('k') || '';
   var AUTO_MS = 4000;
+  var FRAME_MS = 66;      // кадр в разбор не чаще ~15 раз в секунду
+  var SCAN_SIDE = 640;    // перед jsQR кадр уменьшаем до этого размера по большей стороне
+  var FOUND_MS = 180;     // «QR найден» держится на экране, потом «Отмечаю…»
+  var LOST_MS = 350;      // QR не виден дольше: уголки возвращаются в прицел
+  var PING_MS = 120000;   // пока страница открыта, раз в 2 минуты будим скрипт таблицы
+  var ROSTER_MS = 300000; // список имён обновляем раз в 5 минут
+  var ARM = 36, PAD = 10, EDGE = 8; // плечо уголка, отступ от QR, минимальный отступ от края камеры (px)
 
   var stream = null, camDenied = false, dead = false;
-  var scanning = false, scanTimer = 0, autoTimer = 0, pending = false;
+  var scanning = false, raf = 0, lastFrame = 0, autoTimer = 0, pending = false, holdTimer = 0;
   // Показанный код, который ещё в кадре: его повторно не отправляем (см. toCamera).
-  var blocked = '', clearFrames = 0;
+  // blockedAt: когда его видели в последний раз.
+  var blocked = '', blockedAt = 0;
+  // Код, который сейчас отправлен: за ним ведём уголки. tracking: уголки стоят на QR, а не в прицеле; seenAt: когда QR видели последний раз.
+  var trackedCode = '', tracking = false, seenAt = 0;
+  // Имена участников для мгновенного показа: Map отпечаток кода -> строка списка. Нет списка, значит имя придёт с ответом таблицы.
+  var roster = null;
   var cv = document.createElement('canvas'), cx = cv.getContext('2d', { willReadFrequently: true });
 
   var ICONS = {
@@ -264,6 +312,9 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
   function show(name) {
     current = name;
     clearTimeout(autoTimer);
+    clearTimeout(holdTimer);
+    // Разбор кадров идёт только на экране камеры: иначе за зелёным экраном код ушёл бы в таблицу второй раз.
+    if (name !== 'camera') stopScan();
     Object.keys(SCREENS).forEach(function (k) { $(SCREENS[k]).hidden = k !== name; });
   }
 
@@ -320,13 +371,9 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
   async function run(body, onOk, back) {
     if (pending) return;
     pending = true;
-    $('s-camera').classList.add('busy');
-    $('cap').textContent = 'Проверяю…';
     var res = null;
     try { res = await api(body); } catch (e) { res = null; }
     pending = false;
-    $('s-camera').classList.remove('busy');
-    $('cap').textContent = 'Наведите камеру на QR участника';
     if (res && res.ok) return onOk(res);
     if (res && res.error === 'secret') return stale();
     showNet(function () { run(body, onOk, back); }, back, res && res.error === 'busy');
@@ -347,7 +394,13 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
     if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
     stream = null;
   }
-  function stopScan() { scanning = false; clearTimeout(scanTimer); }
+  function stopScan() { scanning = false; cancelAnimationFrame(raf); }
+  function startScan() {
+    scanning = true;
+    lastFrame = 0;
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(loop);
+  }
 
   function showNoCam() {
     showRes('sys', { title: 'Нет доступа к камере',
@@ -360,36 +413,144 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
   function toCamera(blockCode) {
     if (dead) return;
     blocked = blockCode || '';
-    clearFrames = 0;
+    blockedAt = performance.now();
     if (camDenied) return showNoCam();
     show('camera');
-    scanning = true;
-    clearTimeout(scanTimer);
-    tick();
+    resetCamera();
+    startScan();
   }
 
-  // Кадры в canvas, jsQR около 9 раз в секунду.
-  function tick() {
-    if (!scanning) return;
-    var v = $('video');
-    if (v.readyState >= 2 && v.videoWidth) {
-      var w = Math.min(800, v.videoWidth), hh = Math.round(v.videoHeight * w / v.videoWidth);
-      cv.width = w; cv.height = hh;
-      cx.drawImage(v, 0, 0, w, hh);
-      var q = window.jsQR(cx.getImageData(0, 0, w, hh).data, w, hh, { inversionAttempts: 'attemptBoth' });
-      var code = q && q.data ? q.data : '';
-      if (code && code !== blocked) return found(code);
-      if (blocked) {
-        if (code === blocked) clearFrames = 0; // тот же код всё ещё в кадре
-        else if (++clearFrames >= 9) blocked = ''; // кадр пуст около секунды
-      }
+  // ---- Рамка наведения: уголки следят за QR ----
+  var STATUS = { search: 'Наведите камеру на QR участника', found: 'QR найден', sending: 'Отмечаю…' };
+  // Состояние камеры: search (ищем QR), found (QR найден), sending (ждём ответ таблицы). Его читают стили.
+  function setState(st) {
+    var cam = $('s-camera');
+    if (cam.dataset.state === st) return;
+    cam.dataset.state = st;
+    $('cap').textContent = STATUS[st];
+    if (st === 'sending') live(STATUS[st]);
+  }
+  function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+
+  // Уголки по часовой: левый верхний, правый верхний, правый нижний, левый нижний. d: в какую сторону уголок смотрит наружу.
+  var DIR = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+  var corners = Array.prototype.slice.call($('corners').children);
+  // Угол (x, y) сцены, к которому прижат уголок, поворот в градусах и масштаб. Плечо уголка идёт от угла внутрь.
+  function put(i, x, y, rot, k) {
+    var d = DIR[i];
+    corners[i].style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px) rotate(' + rot.toFixed(2) + 'deg) scale(' + k.toFixed(3) +
+      ') translate(' + (d[0] < 0 ? 0 : -ARM) + 'px,' + (d[1] < 0 ? 0 : -ARM) + 'px)';
+  }
+  // ms: за сколько уголки едут (0 сразу)
+  function glide(ms) { $('corners').style.setProperty('--tr', ms + 'ms'); }
+  // Уголки в исходном прицеле.
+  function home(ms) {
+    var st = $('stage').getBoundingClientRect(), fr = $('frame').getBoundingClientRect();
+    if (!st.width) return;
+    var l = fr.left - st.left, t = fr.top - st.top, r = l + fr.width, b = t + fr.height;
+    glide(ms);
+    [[l, t], [r, t], [r, b], [l, b]].forEach(function (p, i) { put(i, p[0], p[1], 0, 1); });
+    tracking = false;
+  }
+  // Уголки на углах QR. Углы jsQR лежат в координатах кадра canvas; видео показано через object-fit: cover,
+  // поэтому пересчёт идёт через масштаб и обрезку. Наклон QR берём по его верхней грани, уголки ведём по экранным углам.
+  function aim(q, v, now) {
+    var W = $('stage').clientWidth, H = $('stage').clientHeight;
+    if (!W || !H) return;
+    var s = Math.max(W / v.videoWidth, H / v.videoHeight);
+    var f = s * v.videoWidth / cv.width;
+    var ox = (W - v.videoWidth * s) / 2, oy = (H - v.videoHeight * s) / 2;
+    var L = q.location;
+    var p = [L.topLeftCorner, L.topRightCorner, L.bottomRightCorner, L.bottomLeftCorner].map(function (c) { return { x: ox + c.x * f, y: oy + c.y * f }; });
+    var ang = Math.atan2(p[1].y - p[0].y, p[1].x - p[0].x);
+    var n = Math.round(ang / (Math.PI / 2));         // QR повернут на n четвертей: его «левый верхний» угол может быть на экране справа
+    var rot = ang - n * Math.PI / 2, cos = Math.cos(rot), sin = Math.sin(rot);
+    var k = clamp(Math.hypot(p[1].x - p[0].x, p[1].y - p[0].y) / 160, 0.5, 1);   // мелкий QR: уголки короче, чтобы не наезжали друг на друга
+    glide(tracking ? 140 : 220);
+    for (var i = 0; i < 4; i++) {
+      var c = p[((i - n) % 4 + 4) % 4], d = DIR[i], ax = d[0] * PAD * k, ay = d[1] * PAD * k;
+      put(i, clamp(c.x + ax * cos - ay * sin, EDGE, W - EDGE), clamp(c.y + ax * sin + ay * cos, EDGE, H - EDGE), rot * 180 / Math.PI, k);
     }
-    scanTimer = setTimeout(tick, 110);
+    tracking = true;
+    seenAt = now;
+  }
+  // Новый показ камеры: прицел, статус «Наведите…», без имени.
+  function resetCamera() {
+    clearTimeout(holdTimer);
+    trackedCode = '';
+    $('pcard').hidden = true;
+    setState('search');
+    home(0);
+  }
+  window.addEventListener('resize', function () { if (!tracking && current === 'camera') home(0); });
+
+  // ---- Мгновенное имя ----
+  // Код из текста QR так же, как это делает таблица: 32 hex-символа в нижнем регистре, иначе весь текст.
+  function codeKey(text) {
+    var raw = String(text).trim(), m = raw.match(/[0-9a-f]{32}/i);
+    return m ? m[0].toLowerCase() : raw;
+  }
+  async function sha256(text) {
+    var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return Array.prototype.map.call(new Uint8Array(buf), function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+  }
+  async function loadRoster() {
+    if (dead) return;
+    try {
+      var r = await api({ a: 'roster' });
+      if (r && r.ok && Array.isArray(r.items)) {
+        var m = new Map();
+        r.items.forEach(function (it) { m.set(it[0], it); });
+        roster = m;
+      }
+    } catch (e) { /* без списка всё работает, имя придёт вместе с ответом таблицы */ }
+  }
+  // Имя поверх камеры, пока таблица отвечает. Нет в списке или список не загрузился: ничего не показываем.
+  async function introduce(code) {
+    if (!roster || !window.crypto || !crypto.subtle) return;
+    var it;
+    try { it = roster.get(await sha256(codeKey(code))); } catch (e) { return; }
+    if (!it || !pending || trackedCode !== code || current !== 'camera') return;
+    $('pcard-name').textContent = fullName({ first: it[2], last: it[3] });
+    $('pcard-co').textContent = it[5] || '';
+    $('pcard').hidden = false;
   }
 
-  function found(code) {
-    stopScan();
+  // Кадры в canvas, jsQR около 15 раз в секунду. Пока запрос в пути, разбор продолжается только ради рамки:
+  // новый код не отправляем, уголки ведём за тем же QR.
+  function loop(now) {
+    if (!scanning) return;
+    raf = requestAnimationFrame(loop);
+    if (now - lastFrame < FRAME_MS) return;
+    lastFrame = now;
+    var v = $('video');
+    if (v.readyState < 2 || !v.videoWidth) return;
+    var m = Math.min(1, SCAN_SIDE / Math.max(v.videoWidth, v.videoHeight));
+    var w = Math.round(v.videoWidth * m), hh = Math.round(v.videoHeight * m);
+    if (cv.width !== w || cv.height !== hh) { cv.width = w; cv.height = hh; }
+    cx.drawImage(v, 0, 0, w, hh);
+    var q = window.jsQR(cx.getImageData(0, 0, w, hh).data, w, hh, { inversionAttempts: 'dontInvert' });
+    var code = q && q.data ? q.data : '';
+    if (pending) {
+      if (code && code === trackedCode) aim(q, v, now);
+      else if (tracking && now - seenAt > LOST_MS) home(340);
+      return;
+    }
+    if (code && code !== blocked) return found(code, q, v, now);
+    if (blocked) {
+      if (code === blocked) blockedAt = now; // тот же код всё ещё в кадре
+      else if (now - blockedAt > 1000) blocked = ''; // кадр пуст около секунды
+    }
+  }
+
+  function found(code, q, v, now) {
     blocked = '';
+    trackedCode = code;
+    setState('found');
+    aim(q, v, now);
+    clearTimeout(holdTimer);
+    holdTimer = setTimeout(function () { if (pending && current === 'camera') setState('sending'); }, FOUND_MS);
+    introduce(code);
     run({ a: 'scan', t: code }, function (res) { showScan(res, code); }, function () { toCamera(code); });
   }
 
@@ -478,8 +639,13 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
     if (!API) return fatal('Не задан адрес таблицы', 'Впишите адрес в config.js и обновите страницу');
     if (!GUESTS) { $('b-guest').hidden = true; $('s-camera').classList.add('single'); }
     show('camera');
+    home(0);
     // Устаревшую ссылку видно сразу, а не на первом госте у входа. Сбой сети здесь не мешает: камера работает.
-    api({ a: 'find', q: '' }).then(function (r) { if (r && r.error === 'secret') stale(); }).catch(function () {});
+    // Список имён грузим после проверки секрета и обновляем раз в 5 минут; ошибки молча пропускаем.
+    api({ a: 'find', q: '' }).then(function (r) { if (r && r.error === 'secret') stale(); }).catch(function () {}).then(loadRoster);
+    setInterval(function () { if (!document.hidden) loadRoster(); }, ROSTER_MS);
+    // Google усыпляет скрипт, если к нему давно не обращались: первый скан после паузы идёт заметно дольше. Ответ не нужен.
+    setInterval(function () { if (!document.hidden && !dead) api({ a: 'ping' }).catch(function () {}); }, PING_MS);
     var ok = await startCamera();
     if (dead) { stopCamera(); return; }
     // Пока камера запрашивалась, сотрудник мог уйти в поиск или к гостю: его экран не трогаем.
