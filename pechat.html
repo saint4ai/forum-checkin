@@ -344,7 +344,9 @@ h2 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spac
         ack(p.id);
       }
     } catch (e) { setStatus('net'); }
-    if (!stopped) setTimeout(poll, Math.max(0, POLL_MS - (Date.now() - t0)));
+    // Не чаще раза в POLL_MS и не меньше секунды тишины после ответа: запрос к таблице сам идёт ~2,5 с, без паузы
+    // станция держала бы одно из 30 мест Google для одновременных запросов всё время.
+    if (!stopped) setTimeout(poll, Math.max(1000, POLL_MS - (Date.now() - t0)));
   }
 
   // ---- Запуск ----
