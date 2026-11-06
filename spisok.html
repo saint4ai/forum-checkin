@@ -88,6 +88,10 @@ svg { flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-li
 .left span { color: var(--ink); }
 .meter { grid-area: meter; height: 10px; border-radius: 999px; background: var(--hair); overflow: hidden; }
 .meter i { display: block; height: 100%; border-radius: 999px; background: var(--ok); clip-path: inset(0 var(--r, 100%) 0 0 round 999px); transition: clip-path 280ms var(--ease); }
+/* Сколько прошло через каждую стойку: строка под шкалой, только когда стоек больше одной */
+.hero.desks { grid-template-areas: "count" "meter" "left" "desks"; }
+.dks { grid-area: desks; display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; font-size: 15px; line-height: 1.3; color: var(--muted); font-variant-numeric: tabular-nums; }
+.dks b { color: var(--ink); font-weight: 600; }
 /* Узкий телефон: три цифры («Пришли 320 из 320») должны встать в одну строку */
 @media (max-width: 389px) {
   .count { font-size: 19px; }
@@ -158,6 +162,8 @@ tr.stuck .pr-t { color: var(--bad); font-weight: 600; }
 .pill.in { padding-left: 5px; background-color: var(--ok-tint); background-image: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0)); color: var(--ok); font-weight: 600; box-shadow: inset 0 0 0 1px rgba(30,127,60,.14); }
 .pill.in svg { width: 18px; height: 18px; padding: 3px; border-radius: 50%; background: var(--ok); stroke: #fff; stroke-width: 3.2; }
 .pill.out { padding-left: 0; color: var(--muted); }
+/* Стойка, через которую прошёл гость: серым рядом со статусом */
+.dk { margin-left: 8px; font-size: 14px; line-height: 28px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 /* Телефон: число в фильтре под названием, всегда. Одной строкой «Не пришли 137» на узком экране переносилось бы только у одной кнопки из трёх */
 @media (max-width: 519px) { .seg .n { display: block; } }
@@ -182,6 +188,7 @@ tr.stuck .pr-t { color: var(--bad); font-weight: 600; }
   .meta { margin: 0; align-self: start; }
   .acts { display: flex; }
   .hero { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "count left" "meter meter"; align-items: end; gap: 20px 24px; padding: 28px 32px; }
+  .hero.desks { grid-template-areas: "count left" "meter meter" "desks desks"; }
   .count .n { font-size: clamp(60px, 9.5vw, 88px); }
   .count .of { font-size: 32px; }
   .left { padding-bottom: 6px; font-size: 18px; }
@@ -278,6 +285,7 @@ tr.stuck .pr-t { color: var(--bad); font-weight: 600; }
       <p class="count" id="count"><span class="lbl">Пришли</span> <span class="n" id="n-came">0</span> <span class="of">из <span id="n-total">0</span></span></p>
       <p class="left">Ещё не пришли <span id="n-left">0</span></p>
       <div class="meter" aria-hidden="true"><i id="fill"></i></div>
+      <p class="dks" id="dks" hidden></p>
     </section>
 
     <div class="acts">
@@ -332,6 +340,8 @@ tr.stuck .pr-t { color: var(--bad); font-weight: 600; }
   // Пауза считается с конца прошлого запроса: ответ Google идёт 2–3 с, запросы не наезжают друг на друга.
   // Раз в 10 с: организатор на телефоне и на компьютере видит новых пришедших почти сразу.
   var REFRESH_MS = 10000;
+  // Сколько стоек регистрации (config.js). Больше 1: у пришедших видна стойка, в шапке счёт по стойкам.
+  var DESKS = Math.min(9, Math.floor(Number(window.FORUM_DESKS)) || 0);
   // Время в таблице пишет Code.gs в поясе проекта: «Обновлено» показываем в нём же, чтобы часы на экране сходились.
   var clock = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Asia/Almaty', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
   var words = new Intl.Collator('ru');
@@ -423,6 +433,7 @@ tr.stuck .pr-t { color: var(--bad); font-weight: 600; }
     pill.innerHTML = p.in ? CHECK : RING;
     pill.append(p.in ? 'Пришёл' + (p.at ? ' ' + p.at : '') : 'Не пришёл');
     st.append(pill);
+    if (p.in && p.desk && DESKS > 1) st.append(h('span', 'dk', 'стойка ' + p.desk));
     var wait = p.print === 'wait';
     var label = wait ? waitLabel(p) : p.print === 'done' ? 'напечатана' : '';
     if (stuckFor(p)) tr.classList.add('stuck');
@@ -712,6 +723,24 @@ tr.stuck .pr-t { color: var(--bad); font-weight: 600; }
     $('c-out').textContent = total - came;
     $('fill').style.setProperty('--r', (total ? (1 - came / total) * 100 : 100) + '%');
     $('b-csv').disabled = !total;
+    paintDesks();
+  }
+
+  // «Стойка 1: 12 · Стойка 2: 8 …». Номер стойки таблица помнит 6 часов: кто пришёл раньше, тот «без номера».
+  function paintDesks() {
+    var box = $('dks'), on = DESKS > 1;
+    box.hidden = !on;
+    $('hero').classList.toggle('desks', on);
+    if (!on) return;
+    var n = {}, none = 0;
+    people.forEach(function (p) { if (!p.in) return; if (p.desk) n[p.desk] = (n[p.desk] || 0) + 1; else none++; });
+    box.textContent = '';
+    for (var i = 1; i <= DESKS; i++) {
+      var s = h('span', '', 'Стойка ' + i + ' ');
+      s.append(h('b', '', String(n[i] || 0)));
+      box.append(s);
+    }
+    if (none) { var x = h('span', '', 'Без номера '); x.append(h('b', '', String(none))); box.append(x); }
   }
 
   // Фамилия, а у гостя без фамилии имя; дальше имя и номер.
@@ -746,8 +775,8 @@ tr.stuck .pr-t { color: var(--bad); font-weight: 600; }
   }
   function download() {
     if (!people.length) return;
-    var lines = [['ID', 'Имя', 'Фамилия', 'Должность', 'Компания', 'Пришёл', 'Время прихода']].concat(people.map(function (p) {
-      return [p.id, p.first, p.last, p.position, p.company, p.in ? 'да' : 'нет', p.at];
+    var lines = [['ID', 'Имя', 'Фамилия', 'Должность', 'Компания', 'Пришёл', 'Время прихода', 'Стойка']].concat(people.map(function (p) {
+      return [p.id, p.first, p.last, p.position, p.company, p.in ? 'да' : 'нет', p.at, p.in ? p.desk || '' : ''];
     }));
     // BOM в начале: без него Excel читает UTF-8 как ANSI и ломает кириллицу.
     var text = '\uFEFF' + lines.map(function (r) { return r.map(cell).join(';'); }).join('\r\n') + '\r\n';
