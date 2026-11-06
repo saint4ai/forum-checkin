@@ -552,11 +552,15 @@ tr.stuck .pr-t { color: var(--bad); font-weight: 600; }
     await Promise.race([Promise.all([document.fonts.load('700 40px Caveat', text), document.fonts.load('400 40px Caveat', text)]), sleep(4000)]);
     await Promise.race([document.fonts.ready, sleep(4000)]);
     var box = $('sticker'), st = getComputedStyle(box);
+    box.style.paddingLeft = '';
     // Запас под отступ лесенки (4 мм) и наклон строк.
     var avail = (box.clientWidth - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight)) * 0.80;
     fit(['st-first', 'st-last'], box.clientHeight * 0.30, avail);
     fit(['st-pos'], box.clientHeight * 0.115, avail);
     fit(['st-comp'], box.clientHeight * 0.115, avail);
+    // Весь блок текста по центру наклейки, лесенка внутри блока сохраняется.
+    var right = Math.max.apply(null, ['st-first', 'st-last', 'st-pos', 'st-comp'].map($).filter(function (e) { return e.textContent; }).map(function (e) { return e.offsetLeft + e.offsetWidth; }));
+    box.style.paddingLeft = parseFloat(st.paddingLeft) + Math.max(0, (box.clientWidth - parseFloat(st.paddingRight) - right) / 2) + 'px';
     window.print();
   }
   // Печать строго по одной: следующая наклейка не затирает текст предыдущей.
