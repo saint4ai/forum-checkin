@@ -74,7 +74,14 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
 .corners i:nth-child(4) { --dx: -1; --dy: 1; --n: 3; } .corners i:nth-child(4)::before { border-width: 0 0 4px 4px; border-bottom-left-radius: 16px; }
 /* QR найден и отмечаю: уголки синие с белой кромкой, чтобы читаться и на белой бумаге с QR, и на тёмном фоне. Цвет виден и без движения */
 .cam[data-state="found"] .corners, .cam[data-state="sending"] .corners { --arm: #0A84FF; filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff) drop-shadow(0 0 7px rgba(10,132,255,.55)); }
-.cap { position: absolute; left: 50%; top: 16px; width: max-content; max-width: calc(100% - 24px); margin: 0; padding: 10px 18px; border-radius: 22px; transform: translateX(-50%); background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); color: var(--ink); font-size: 16px; font-weight: 400; line-height: 1.3; text-align: center; text-wrap: balance; box-shadow: var(--glass-rim), var(--glass-shadow); }
+.top { position: absolute; left: 12px; right: 12px; top: 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; pointer-events: none; }
+.cap { width: max-content; max-width: 100%; margin: 0; padding: 10px 18px; border-radius: 22px; background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); color: var(--ink); font-size: 16px; font-weight: 400; line-height: 1.3; text-align: center; text-wrap: balance; box-shadow: var(--glass-rim), var(--glass-shadow); }
+/* Пилюля «Стойка N» рядом с подписью (узкий экран: под ней). Нужна только когда стоек больше одной; прицелу при ней отступ больше */
+.desk { pointer-events: auto; display: inline-flex; align-items: center; gap: 6px; min-height: 48px; padding: 0 14px 0 18px; border: 0; border-radius: 24px; background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); color: var(--ink); font-size: 16px; font-weight: 600; line-height: 1.2; box-shadow: var(--glass-rim), var(--glass-shadow); transition: transform 160ms var(--ease), background-color 160ms var(--ease); }
+.desk:active { transform: scale(.97); }
+.desk svg { width: 16px; height: 16px; fill: none; stroke: var(--muted); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+@media (hover: hover) { .desk:hover { background: rgba(255,255,255,.97); } }
+@media (min-height: 481px) { .cam.desks .aim { padding-top: 136px; } }
 .bar { position: relative; grid-area: 1 / 1; align-self: end; z-index: 1; display: grid; gap: 8px; margin: 12px; padding: 8px; border-radius: 28px; background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-rim), var(--glass-shadow); }
 .bar .btn { border-radius: 20px; }
 .bar .btn.line { background: rgba(0,0,0,.055); box-shadow: none; }
@@ -119,8 +126,8 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
 @keyframes chase { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
 @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
 /* Две одинаковые анимации с разными именами: так подпись «выскакивает» при каждой смене состояния */
-@keyframes cap-found { from { opacity: 0; transform: translateX(-50%) scale(.94); } }
-@keyframes cap-send { from { opacity: 0; transform: translateX(-50%) scale(.94); } }
+@keyframes cap-found { from { opacity: 0; transform: scale(.94); } }
+@keyframes cap-send { from { opacity: 0; transform: scale(.94); } }
 
 /* Результат: во весь экран, цвет + иконка + заголовок. Цвет возникает сразу, содержимое выезжает за 240 мс.
    Цвет заливки остаётся прежним сверху, вниз он глубже: вертикальный градиент того же тона только темнее, так что контраст белого текста не падает */
@@ -190,6 +197,13 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
 .field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
 #se-q { padding-left: 46px; background: var(--group) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236E6E73' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='10.5' cy='10.5' r='6.5'/%3E%3Cpath d='M15.5 15.5L20 20'/%3E%3C/svg%3E") no-repeat 14px center / 22px; }
 .form { display: grid; gap: 16px; }
+/* Выбор стойки: крупные кнопки сеткой, выбранная синяя. Без кнопки «Назад» заголовок опущен ниже */
+.back[hidden] + h1 { margin-top: 32px; }
+.keys { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.key { min-height: 96px; border: 0; border-radius: 20px; background: var(--group); color: var(--ink); font-size: 40px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; box-shadow: inset 0 0 0 .5px rgba(0,0,0,.06); transition: transform 160ms var(--ease), background-color 160ms var(--ease); }
+.key:active { transform: scale(.97); }
+.key[aria-pressed="true"] { background: var(--accent); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 1px 2px rgba(0,113,227,.28), 0 6px 14px -4px rgba(0,113,227,.35); }
+@media (hover: hover) { .key:hover { background: #EBEBED; } .key[aria-pressed="true"]:hover { background: var(--accent-hover); } }
 .group { padding: 4px 0; border-radius: 20px; background: var(--group); }
 .group .field { grid-template-columns: 104px minmax(0, 1fr); align-items: center; gap: 0; min-height: 64px; padding: 8px 8px 8px 16px; }
 .group .field label { padding: 0; font-size: 17px; color: var(--ink); }
@@ -214,15 +228,23 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
   <section id="s-camera" class="cam sheet" data-state="search" aria-label="Камера" hidden>
     <div class="stage" id="stage">
       <video id="video" playsinline muted autoplay aria-hidden="true"></video>
-      <div class="aim" aria-hidden="true"><div class="frame" id="frame"></div><p class="cap" id="cap">Наведите камеру на QR участника</p></div>
+      <div class="aim" aria-hidden="true"><div class="frame" id="frame"></div></div>
       <div class="pcard" id="pcard" aria-hidden="true" hidden><b id="pcard-name"></b><span id="pcard-co"></span><div class="prog"></div></div>
       <div class="corners" id="corners" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <div class="top"><p class="cap" id="cap" aria-hidden="true">Наведите камеру на QR участника</p><button type="button" class="desk" id="b-desk" hidden><span id="b-desk-t"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button></div>
     </div>
     <div class="bar">
       <button type="button" class="btn" id="b-find">Найти по фамилии</button>
       <button type="button" class="btn line" id="b-guest">Гость без приглашения</button>
       <a class="tlink" id="b-sheet" target="_blank" rel="noopener" hidden>Перейти в таблицу</a>
     </div>
+  </section>
+
+  <section id="s-desk" class="page" aria-labelledby="d-title" hidden>
+    <button type="button" class="back" id="d-back" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Назад к камере</button>
+    <h1 id="d-title">Ваша стойка?</h1>
+    <div class="keys" id="d-keys" role="group" aria-labelledby="d-title"></div>
+    <p class="hint">Наклейки будут печататься на принтере этой стойки</p>
   </section>
 
   <section id="s-result" class="res" hidden>
@@ -276,8 +298,15 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
   var GUESTS = window.FORUM_GUESTS !== false;
   // Секрет сотрудников живёт только в хеше ссылки: на сервер не уходит, никуда не пишется.
   var K = new URLSearchParams(location.hash.slice(1)).get('k') || '';
-  // Номер стойки (#d=2): наклейка печатается на принтере этой стойки. Без номера — стойка 1.
-  var D = new URLSearchParams(location.hash.slice(1)).get('d') || '';
+  // Номер стойки: наклейка печатается на принтере этой стойки. Порядок: #d=2 из ссылки (и запоминаем),
+  // иначе выбор, сохранённый на этом телефоне, иначе спрашиваем (если стоек больше одной). Без номера — стойка 1.
+  var DESKS = Math.min(9, Math.floor(Number(window.FORUM_DESKS)) || 0);
+  function deskOk(v) { return /^[1-9]$/.test(v) ? v : ''; }
+  function deskLoad() { try { return localStorage.getItem('forum-desk') || ''; } catch (e) { return ''; } }
+  function deskSave(v) { try { localStorage.setItem('forum-desk', v); } catch (e) { /* не критично */ } }
+  var D = deskOk(new URLSearchParams(location.hash.slice(1)).get('d') || '');
+  if (D) deskSave(D);
+  else if (DESKS > 1) { D = deskOk(deskLoad()); if (Number(D) > DESKS) D = ''; }
   var AUTO_MS = 4000;
   var FRAME_MS = 66;      // кадр в разбор не чаще ~15 раз в секунду
   var SCAN_SIDE = 640;    // перед jsQR кадр уменьшаем до этого размера по большей стороне
@@ -321,7 +350,7 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
   }
 
   // ---- Экраны ----
-  var SCREENS = { camera: 's-camera', result: 's-result', search: 's-search', guest: 's-guest' };
+  var SCREENS = { camera: 's-camera', desk: 's-desk', result: 's-result', search: 's-search', guest: 's-guest' };
   var current = '';
   function show(name) {
     current = name;
@@ -435,7 +464,7 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
   }
 
   // ---- Рамка наведения: уголки следят за QR ----
-  var STATUS = { search: (D ? 'Стойка ' + D + ' · ' : '') + 'Наведите камеру на QR участника', found: 'QR найден', sending: 'Отмечаю…' };
+  var STATUS = { get search() { return (D ? 'Стойка ' + D + ' · ' : '') + 'Наведите камеру на QR участника'; }, found: 'QR найден', sending: 'Отмечаю…' };
   // Состояние камеры: search (ищем QR), found (QR найден), sending (ждём ответ таблицы). Его читают стили.
   function setState(st) {
     var cam = $('s-camera');
@@ -639,6 +668,49 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
     showNet(doSearch, backToSearch);
   }
 
+  // ---- Стойка ----
+  var camStarted = false;
+  // Подпись камеры, пилюля и заголовок вкладки под текущую стойку.
+  function applyDesk() {
+    $('cap').textContent = STATUS[$('s-camera').dataset.state];
+    document.title = D ? 'Вход · стойка ' + D : 'Вход на форум';
+    var pill = DESKS > 1 && !!D;
+    $('b-desk').hidden = !pill;
+    $('s-camera').classList.toggle('desks', pill);
+    if (pill) {
+      $('b-desk-t').textContent = 'Стойка ' + D;
+      $('b-desk').setAttribute('aria-label', 'Стойка ' + D + ', сменить');
+    }
+  }
+  // Экран выбора. Назад к камере есть, только если стойка уже выбрана (иначе не пройти дальше без выбора).
+  function openDesk() {
+    if (pending) return;
+    var box = $('d-keys');
+    if (!box.firstChild) {
+      for (var i = 1; i <= DESKS; i++) {
+        var b = h('button', 'key', String(i));
+        b.type = 'button';
+        b.addEventListener('click', pickDesk);
+        box.appendChild(b);
+      }
+    }
+    var cur = null;
+    Array.prototype.forEach.call(box.children, function (b) {
+      var on = b.textContent === D;
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      if (on) cur = b;
+    });
+    $('d-back').hidden = !D;
+    show('desk');
+    if (cur) cur.focus();
+  }
+  function pickDesk(e) {
+    D = e.currentTarget.textContent;
+    deskSave(D);
+    applyDesk();
+    if (camStarted) toCamera(); else launch();
+  }
+
   // ---- Гость ----
   var GF = ['g-first', 'g-last', 'g-pos', 'g-comp'];
   function guestValid() { return !!($('g-first').value.trim() || $('g-last').value.trim()); }
@@ -657,21 +729,29 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
     if (!GUESTS) { $('b-guest').hidden = true; $('s-camera').classList.add('single'); }
     // Ссылка «Перейти в таблицу»: адрес отдаёт таблица по ключу сотрудников, в публичных файлах сайта его нет.
     api({ a: 'sheet' }).then(function (r) { if (r && r.ok && r.url) { $('b-sheet').href = r.url; $('b-sheet').hidden = false; } }).catch(function () {});
-    if (D) { $('cap').textContent = STATUS.search; document.title = 'Вход · стойка ' + D; }
-    show('camera');
-    home(0);
+    applyDesk();
     // Устаревшую ссылку видно сразу, а не на первом госте у входа. Сбой сети здесь не мешает: камера работает.
     // Список имён грузим после проверки секрета и обновляем раз в 5 минут; ошибки молча пропускаем.
     api({ a: 'find', q: '' }).then(function (r) { if (r && r.error === 'secret') stale(); }).catch(function () {}).then(loadRoster);
     setInterval(function () { if (!document.hidden) loadRoster(); }, ROSTER_MS);
     // Google усыпляет скрипт, если к нему давно не обращались: первый скан после паузы идёт заметно дольше. Ответ не нужен.
     setInterval(function () { if (!document.hidden && !dead) api({ a: 'ping' }).catch(function () {}); }, PING_MS);
+    // Стоек несколько, а своя не выбрана: сначала выбор, камера стартует после него.
+    if (DESKS > 1 && !D) return openDesk();
+    launch();
+  }
+  async function launch() {
+    camStarted = true;
+    show('camera');
+    home(0);
     var ok = await startCamera();
     if (dead) { stopCamera(); return; }
-    // Пока камера запрашивалась, сотрудник мог уйти в поиск или к гостю: его экран не трогаем.
+    // Пока камера запрашивалась, сотрудник мог уйти в поиск, к гостю или к выбору стойки: его экран не трогаем.
     if (current === 'camera') { if (ok) toCamera(); else showNoCam(); }
   }
 
+  $('b-desk').addEventListener('click', openDesk);
+  $('d-back').addEventListener('click', function () { toCamera(); });
   $('b-find').addEventListener('click', openSearch);
   $('b-guest').addEventListener('click', openGuest);
   $('se-guest').addEventListener('click', openGuest);

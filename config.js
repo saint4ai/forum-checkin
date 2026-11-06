@@ -3,3 +3,6 @@
 window.FORUM_API = 'https://script.google.com/macros/s/AKfycbwmUXnWcCUGsUhOKfN_UEXfWpuvz0QwXvj27mG1m6YUL_AvbZoQ8R4r321vG75pSBxGkw/exec';
 // Показывать ли кнопку «Гость без приглашения» на телефоне.
 window.FORUM_GUESTS = true;
+// Сколько стоек регистрации. Больше 1: телефон без номера стойки в ссылке (#d=N) сам спросит стойку и запомнит выбор.
+// 1 или строка убрана: выбора нет, наклейки идут на стойку 1.
+window.FORUM_DESKS = 4;
