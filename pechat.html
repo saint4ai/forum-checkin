@@ -133,7 +133,7 @@ h2 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spac
   <section style="display:grid;gap:16px">
     <div class="head">
       <h2>Последние напечатанные</h2>
-      <span class="btns"><button type="button" class="btn line" id="b-pause">Пауза печати</button><button type="button" class="btn line" id="b-test">Пробная наклейка</button></span>
+      <span class="btns"><button type="button" class="btn line" id="b-pause">Остановить печать</button><button type="button" class="btn line" id="b-test">Пробная наклейка</button></span>
     </div>
     <p class="note">Ещё раз — напечатать заново с данными из таблицы</p>
     <ul class="done" id="done"></ul>
@@ -177,7 +177,7 @@ h2 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spac
     addr: { bad: true, ico: ALERT, title: 'Не задан адрес таблицы', sub: 'Впишите адрес в config.js и обновите страницу' },
     phone: { bad: true, ico: ALERT, title: 'Это страница для ноутбука с принтером', sub: 'На телефоне откройте ссылку «Телефоны на входе». Наклейки печатает ноутбук сам' },
     dup: { bad: true, ico: ALERT, title: 'Станция уже открыта в другом окне', sub: 'Закройте эту вкладку' },
-    pause: { bad: true, ico: ALERT, title: 'Печать на паузе', sub: 'Новые наклейки ждут. Нажмите «Продолжить печать»' },
+    pause: { bad: true, ico: ALERT, title: 'Печать остановлена', sub: 'Новые наклейки ждут. Нажмите «Продолжить печать»' },
     brake: { bad: true, ico: ALERT, title: 'Печать остановлена: больше ' + LIMIT + ' наклеек за минуту', sub: 'Проверьте принтер и очередь, затем «Продолжить печать»' }
   };
   var shown = '';
@@ -259,7 +259,7 @@ h2 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spac
   // ---- Очередь ----
   var unacked = new Set(); // напечатано здесь, но «printed» в таблицу ещё не дошло: заново не печатаем, повторяем только его
   var stopped = false;
-  var paused = ''; // '' печатаем, 'pause' — нажали «Пауза печати», 'brake' — сработал тормоз
+  var paused = ''; // '' печатаем, 'pause' — нажали «Остановить печать», 'brake' — сработал тормоз
   var stamps = []; // время последних напечатанных наклеек для тормоза
   var lastDone = '';
 
@@ -268,7 +268,7 @@ h2 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spac
   function setPaused(kind) {
     paused = kind;
     if (!kind) stamps = [];
-    $('b-pause').textContent = kind ? 'Продолжить печать' : 'Пауза печати';
+    $('b-pause').textContent = kind ? 'Продолжить печать' : 'Остановить печать';
     if (!stopped) setStatus(kind || 'ok');
   }
 
