@@ -82,6 +82,17 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
 @media (max-width: 340px) { .cap { padding: 9px 12px; font-size: 14px; } }
 /* Низкий экран (телефон лёжа): кнопки в один ряд, чтобы док не съедал камеру */
 @media (max-height: 480px) { .cam, .cam.single { --dock: 100px; } .bar { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); } }
+/* Ссылка на таблицу: второстепенная строка под кнопками. Место под неё в доке есть сразу, чтобы рамка не прыгала, когда придёт адрес */
+.tlink { display: block; padding: 6px 0 4px; color: var(--muted); font-size: 15px; line-height: 1.3; text-align: center; text-decoration: underline; text-underline-offset: 3px; }
+.tlink:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 8px; }
+.cam.sheet { --dock: 200px; }
+.cam.single.sheet { --dock: 136px; }
+@media (max-height: 480px) {
+  .cam.sheet, .cam.single.sheet { --dock: 132px; }
+  .cam.sheet .bar { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cam.single.sheet .bar { grid-template-columns: minmax(0, 1fr); }
+  .bar .tlink { grid-column: 1 / -1; padding: 0; }
+}
 
 /* Имя участника из списка на телефоне: показывается сразу после считывания, пока таблица отвечает.
    Решающий экран (зелёный, жёлтый, красный) по-прежнему только после ответа таблицы */
@@ -200,7 +211,7 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
 <div id="live" class="sr" role="status" aria-live="polite"></div>
 
 <main>
-  <section id="s-camera" class="cam" data-state="search" aria-label="Камера" hidden>
+  <section id="s-camera" class="cam sheet" data-state="search" aria-label="Камера" hidden>
     <div class="stage" id="stage">
       <video id="video" playsinline muted autoplay aria-hidden="true"></video>
       <div class="aim" aria-hidden="true"><div class="frame" id="frame"></div><p class="cap" id="cap">Наведите камеру на QR участника</p></div>
@@ -210,6 +221,7 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
     <div class="bar">
       <button type="button" class="btn" id="b-find">Найти по фамилии</button>
       <button type="button" class="btn line" id="b-guest">Гость без приглашения</button>
+      <a class="tlink" id="b-sheet" target="_blank" rel="noopener" hidden>Перейти в таблицу</a>
     </div>
   </section>
 
@@ -264,6 +276,8 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
   var GUESTS = window.FORUM_GUESTS !== false;
   // Секрет сотрудников живёт только в хеше ссылки: на сервер не уходит, никуда не пишется.
   var K = new URLSearchParams(location.hash.slice(1)).get('k') || '';
+  // Номер стойки (#d=2): наклейка печатается на принтере этой стойки. Без номера — стойка 1.
+  var D = new URLSearchParams(location.hash.slice(1)).get('d') || '';
   var AUTO_MS = 4000;
   var FRAME_MS = 66;      // кадр в разбор не чаще ~15 раз в секунду
   var SCAN_SIDE = 640;    // перед jsQR кадр уменьшаем до этого размера по большей стороне
@@ -362,7 +376,7 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
     var t = setTimeout(function () { ctl.abort(); }, 20000);
     try {
       // Без Content-Type: тело уходит как text/plain и обходится без preflight, иначе Apps Script не примет.
-      var res = await fetch(API, { method: 'POST', body: JSON.stringify(Object.assign({ k: K }, body)), signal: ctl.signal });
+      var res = await fetch(API, { method: 'POST', body: JSON.stringify(Object.assign({ k: K }, D ? { d: D } : {}, body)), signal: ctl.signal });
       return await res.json();
     } finally { clearTimeout(t); }
   }
@@ -421,7 +435,7 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
   }
 
   // ---- Рамка наведения: уголки следят за QR ----
-  var STATUS = { search: 'Наведите камеру на QR участника', found: 'QR найден', sending: 'Отмечаю…' };
+  var STATUS = { search: (D ? 'Стойка ' + D + ' · ' : '') + 'Наведите камеру на QR участника', found: 'QR найден', sending: 'Отмечаю…' };
   // Состояние камеры: search (ищем QR), found (QR найден), sending (ждём ответ таблицы). Его читают стили.
   function setState(st) {
     var cam = $('s-camera');
@@ -641,6 +655,9 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
     if (!K) return fatal('Ссылка неполная', 'Откройте ссылку для сотрудников целиком');
     if (!API) return fatal('Не задан адрес таблицы', 'Впишите адрес в config.js и обновите страницу');
     if (!GUESTS) { $('b-guest').hidden = true; $('s-camera').classList.add('single'); }
+    // Ссылка «Перейти в таблицу»: адрес отдаёт таблица по ключу сотрудников, в публичных файлах сайта его нет.
+    api({ a: 'sheet' }).then(function (r) { if (r && r.ok && r.url) { $('b-sheet').href = r.url; $('b-sheet').hidden = false; } }).catch(function () {});
+    if (D) { $('cap').textContent = STATUS.search; document.title = 'Вход · стойка ' + D; }
     show('camera');
     home(0);
     // Устаревшую ссылку видно сразу, а не на первом госте у входа. Сбой сети здесь не мешает: камера работает.
