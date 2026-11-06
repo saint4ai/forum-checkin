@@ -55,6 +55,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .queue b { color: var(--ink); font-size: 56px; line-height: 1; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 
 .head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.head .btns { display: flex; flex-wrap: wrap; gap: 8px; }
 h2 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spacing: -.01em; }
 .note { margin: -12px 0 0; color: var(--muted); text-wrap: pretty; }
 .btn { min-height: 48px; padding: 0 20px; border: 0; border-radius: 14px; background: var(--glass); color: var(--ink); font-size: 17px; font-weight: 600; box-shadow: var(--glass-rim), var(--glass-shadow); transition: transform 160ms var(--ease), background-color 160ms var(--ease); }
@@ -132,7 +133,7 @@ h2 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spac
   <section style="display:grid;gap:16px">
     <div class="head">
       <h2>Последние напечатанные</h2>
-      <button type="button" class="btn line" id="b-test">Пробная наклейка</button>
+      <span class="btns"><button type="button" class="btn line" id="b-pause">Пауза печати</button><button type="button" class="btn line" id="b-test">Пробная наклейка</button></span>
     </div>
     <p class="note">Ещё раз — напечатать заново с данными из таблицы</p>
     <ul class="done" id="done"></ul>
@@ -154,6 +155,10 @@ h2 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spac
   var D = new URLSearchParams(location.hash.slice(1)).get('d') || '';
   if (D) { document.title = 'Станция печати · стойка ' + D; document.querySelector('.rule').textContent = 'Стойка ' + D + '. ' + document.querySelector('.rule').textContent; }
   var POLL_MS = 1500;
+  // Тормоз: больше LIMIT наклеек за минуту — печать встаёт и ждёт человека (сбой не напечатает рулон впустую).
+  var LIMIT = 20;
+  // Номер этой вкладки станции: таблица отдаёт наклейку одной станции, вторая на той же стойке её не печатает.
+  var SID = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
   var SAMPLE = { first: 'Айгерим', last: 'Нурлан', position: 'Product Designer', company: 'Higgs' };
 
   // Размер страницы печати берём из тех же констант, что и вёрстку наклейки.
@@ -171,7 +176,9 @@ h2 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spac
     link: { bad: true, ico: ALERT, title: 'Ссылка неполная', sub: 'Откройте ссылку для сотрудников целиком' },
     addr: { bad: true, ico: ALERT, title: 'Не задан адрес таблицы', sub: 'Впишите адрес в config.js и обновите страницу' },
     phone: { bad: true, ico: ALERT, title: 'Это страница для ноутбука с принтером', sub: 'На телефоне откройте ссылку «Телефоны на входе». Наклейки печатает ноутбук сам' },
-    dup: { bad: true, ico: ALERT, title: 'Станция уже открыта в другом окне', sub: 'Закройте эту вкладку' }
+    dup: { bad: true, ico: ALERT, title: 'Станция уже открыта в другом окне', sub: 'Закройте эту вкладку' },
+    pause: { bad: true, ico: ALERT, title: 'Печать на паузе', sub: 'Новые наклейки ждут. Нажмите «Продолжить печать»' },
+    brake: { bad: true, ico: ALERT, title: 'Печать остановлена: больше ' + LIMIT + ' наклеек за минуту', sub: 'Проверьте принтер и очередь, затем «Продолжить печать»' }
   };
   var shown = '';
   function setStatus(kind) {
@@ -252,9 +259,18 @@ h2 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spac
   // ---- Очередь ----
   var unacked = new Set(); // напечатано здесь, но «printed» в таблицу ещё не дошло: заново не печатаем, повторяем только его
   var stopped = false;
+  var paused = ''; // '' печатаем, 'pause' — нажали «Пауза печати», 'brake' — сработал тормоз
+  var stamps = []; // время последних напечатанных наклеек для тормоза
   var lastDone = '';
 
   function stop(kind) { stopped = true; setStatus(kind); }
+
+  function setPaused(kind) {
+    paused = kind;
+    if (!kind) stamps = [];
+    $('b-pause').textContent = kind ? 'Продолжить печать' : 'Пауза печати';
+    if (!stopped) setStatus(kind || 'ok');
+  }
 
   async function ack(id) {
     try {
@@ -295,19 +311,23 @@ h2 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spac
   async function poll() {
     var t0 = Date.now();
     try {
-      var res = await api({ a: 'queue' });
+      var res = await api({ a: 'queue', s: SID });
       if (!res.ok) {
         if (res.error === 'secret') return stop('stale');
         throw new Error(res.error);
       }
-      setStatus('ok');
+      setStatus(paused || 'ok');
       renderDone(res.done);
       var skip = new Set(unacked);
       var fresh = res.wait.filter(function (p) { return !skip.has(p.id); });
       $('q').textContent = fresh.length;
       for (var id of skip) await ack(id);
       for (var p of fresh) {
+        if (paused) break;
+        stamps = stamps.filter(function (t) { return Date.now() - t < 60000; });
+        if (stamps.length >= LIMIT) { setPaused('brake'); break; }
         try { await printSticker(p); } catch (e) { continue; }
+        stamps.push(Date.now());
         unacked.add(p.id);
         $('q').textContent = Math.max(0, +$('q').textContent - 1);
         await ack(p.id);
@@ -318,6 +338,7 @@ h2 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spac
 
   // ---- Запуск ----
   $('b-test').addEventListener('click', function () { printSticker(SAMPLE); });
+  $('b-pause').addEventListener('click', function () { setPaused(paused ? '' : 'pause'); });
 
   // Ноутбук не должен уснуть: тогда вкладка перестанет опрашивать таблицу.
   async function keepAwake() {
