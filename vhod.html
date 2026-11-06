@@ -227,7 +227,7 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
     <button type="button" class="back" id="se-back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Назад к камере</button>
     <h1>Найти по фамилии</h1>
     <form id="se-form" class="field" autocomplete="off">
-      <label for="se-q">Фамилия или 4 цифры телефона</label>
+      <label for="se-q">Фамилия или имя</label>
       <input id="se-q" type="text" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false">
     </form>
     <ul class="list" id="se-list"></ul>
@@ -485,10 +485,11 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
   window.addEventListener('resize', function () { if (!tracking && current === 'camera') home(0); });
 
   // ---- Мгновенное имя ----
-  // Код из текста QR так же, как это делает таблица: 32 hex-символа в нижнем регистре, иначе весь текст.
-  function codeKey(text) {
+  // Код из текста QR так же, как это делает таблица: 32 hex-символа в нижнем регистре, иначе весь текст,
+  // а за ним каждое число от 6 цифр (ID внутри ссылки бота).
+  function codeKeys(text) {
     var raw = String(text).trim(), m = raw.match(/[0-9a-f]{32}/i);
-    return m ? m[0].toLowerCase() : raw;
+    return m ? [m[0].toLowerCase()] : [raw].concat(raw.match(/\d{6,}/g) || []);
   }
   async function sha256(text) {
     var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
@@ -509,7 +510,9 @@ button { touch-action: manipulation; cursor: pointer; -webkit-tap-highlight-colo
   async function introduce(code) {
     if (!roster || !window.crypto || !crypto.subtle) return;
     var it;
-    try { it = roster.get(await sha256(codeKey(code))); } catch (e) { return; }
+    try {
+      for (var k of codeKeys(code)) { it = roster.get(await sha256(k)); if (it) break; }
+    } catch (e) { return; }
     if (!it || !pending || trackedCode !== code || current !== 'camera') return;
     $('pcard-name').textContent = fullName({ first: it[2], last: it[3] });
     $('pcard-co').textContent = it[5] || '';
