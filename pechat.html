@@ -272,12 +272,22 @@ h2 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spac
     if (!stopped) setStatus(kind || 'ok');
   }
 
+  // Подтверждение «напечатано» уходит параллельно: следующая наклейка не ждёт ответа таблицы (под нагрузкой это 5–7 с).
+  // Повторно не печатаем — наклейка в unacked, пока таблица не подтвердит; один и тот же id не шлём дважды одновременно.
+  var inflight = new Set();
+  // id → since (когда наклейку поставили в печать), уже напечатанные этой вкладкой. Опрос мог прочитать таблицу до того,
+  // как туда легло «напечатано», и вернуть ту же наклейку в «ждёт»: ту же постановку второй раз не печатаем.
+  // «Напечатать ещё раз» даёт новый since — такая наклейка печатается.
+  var doneSince = new Map();
   async function ack(id) {
+    if (inflight.has(id)) return;
+    inflight.add(id);
     try {
       var r = await api({ a: 'printed', id: id });
       if (r.ok || r.error === 'not_found') unacked.delete(id);
       else if (r.error === 'secret') stop('stale');
     } catch (e) { /* связи нет: повторим на следующем опросе */ }
+    finally { inflight.delete(id); }
   }
 
   function renderDone(done) {
@@ -319,18 +329,19 @@ h2 { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spac
       setStatus(paused || 'ok');
       renderDone(res.done);
       var skip = new Set(unacked);
-      var fresh = res.wait.filter(function (p) { return !skip.has(p.id); });
+      var fresh = res.wait.filter(function (p) { return !skip.has(p.id) && !(p.since && doneSince.get(p.id) === p.since); });
       $('q').textContent = fresh.length;
-      for (var id of skip) await ack(id);
+      for (var id of skip) ack(id);
       for (var p of fresh) {
         if (paused) break;
         stamps = stamps.filter(function (t) { return Date.now() - t < 60000; });
         if (stamps.length >= LIMIT) { setPaused('brake'); break; }
         try { await printSticker(p); } catch (e) { continue; }
         stamps.push(Date.now());
+        if (p.since) doneSince.set(p.id, p.since);
         unacked.add(p.id);
         $('q').textContent = Math.max(0, +$('q').textContent - 1);
-        await ack(p.id);
+        ack(p.id);
       }
     } catch (e) { setStatus('net'); }
     if (!stopped) setTimeout(poll, Math.max(0, POLL_MS - (Date.now() - t0)));
