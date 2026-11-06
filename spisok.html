@@ -149,6 +149,10 @@ td { display: block; min-width: 0; }
 /* Печать застряла (ждёт дольше 30 с): красная полоса слева и красный текст статуса, без мигания. Полосу несёт карточка, в таблице первая ячейка. */
 tr.stuck { box-shadow: inset 3px 0 0 var(--bad), var(--shadow-sm); }
 tr.stuck .pr-t { color: var(--bad); font-weight: 600; }
+/* Обнуление после тестов: только по ссылке организатора (#o=…), тихая строка под шапкой, кнопка красным текстом */
+.wipe { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 12px 0 0; padding: 12px 16px; border-radius: 18px; background: var(--bad-tint); }
+.wipe p { margin: 0; font-size: 14px; line-height: 1.35; color: var(--muted); text-wrap: pretty; }
+.wipe .btn { color: var(--bad); }
 .late { margin: 12px 0 8px; padding: 10px 14px; border-radius: 14px; background: var(--bad-tint); color: var(--bad); font-size: 15px; line-height: 1.35; text-wrap: pretty; }
 /* Подсказка про «Печать здесь», только на компьютере */
 .tip { margin: 12px 0 8px; font-size: 14px; line-height: 1.35; color: var(--muted); text-wrap: pretty; }
@@ -294,6 +298,11 @@ tr.stuck .pr-t { color: var(--bad); font-weight: 600; }
     </div>
   </div>
 
+  <section class="wipe" id="wipe" hidden>
+    <p>После тестов: снимет все отметки и удалит тестовых гостей. Работает, пока пришло не больше 40 человек</p>
+    <button type="button" class="btn" id="b-wipe">Обнулить после тестов</button>
+  </section>
+
   <div class="bar">
     <div class="seg" id="seg" role="group" aria-label="Показать" data-f="all">
       <i class="thumb" aria-hidden="true"></i>
@@ -337,6 +346,8 @@ tr.stuck .pr-t { color: var(--bad); font-weight: 600; }
   var API = window.FORUM_API || '';
   // Секрет живёт только в хеше ссылки: на сервер не уходит, никуда не пишется и не логируется.
   var K = new URLSearchParams(location.hash.slice(1)).get('k') || '';
+  // Ключ организатора: только по его ссылке видна кнопка «Обнулить после тестов».
+  var O = new URLSearchParams(location.hash.slice(1)).get('o') || '';
   // Пауза считается с конца прошлого запроса: ответ Google идёт 2–3 с, запросы не наезжают друг на друга.
   // Раз в 10 с: организатор на телефоне и на компьютере видит новых пришедших почти сразу.
   var REFRESH_MS = 10000;
@@ -793,6 +804,25 @@ tr.stuck .pr-t { color: var(--bad); font-weight: 600; }
   // ---- Запуск ----
   $('b-refresh').addEventListener('click', load);
   $('b-csv').addEventListener('click', download);
+
+  // ---- Обнуление после тестов ----
+  // Слово-подтверждение вместо «Да»: случайным касанием базу не стереть. После обнуления список перечитывается.
+  $('wipe').hidden = !O;
+  $('b-wipe').addEventListener('click', async function () {
+    var b = $('b-wipe');
+    var w = window.prompt('Все отметки снимутся, тестовые гости удалятся. Станции печати лучше закрыть. Чтобы обнулить, напишите слово ОБНУЛИТЬ');
+    if (!w || w.trim().toUpperCase() !== 'ОБНУЛИТЬ') return;
+    b.disabled = true; b.textContent = 'Обнуляю…';
+    try {
+      var r = await api({ a: 'wipe', o: O });
+      if (r.ok) window.alert('Готово. Снято отметок: ' + r.reset + ', удалено гостей: ' + r.removed + '.');
+      else if (r.error === 'too_many') window.alert('Пришло уже ' + r.came + ' человек: похоже, форум идёт. Обнуление закрыто, напишите нам.');
+      else if (r.error === 'secret') window.alert('Ссылка организатора устарела. Попросите новую.');
+      else window.alert('Не получилось обнулить. Попробуйте ещё раз.');
+    } catch (e) { window.alert('Нет связи с таблицей. Проверьте интернет и попробуйте ещё раз.'); }
+    b.disabled = false; b.textContent = 'Обнулить после тестов';
+    load();
+  });
   $('rows').addEventListener('click', function (e) {
     var b = e.target.closest('.rp'), l = e.target.closest('.pl');
     if (b) reprint(b.dataset.rp);
